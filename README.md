@@ -1,4 +1,7 @@
 # CHAMPS Hackathon 2024
+
+![airfoil](https://github.com/wvannoordt/helmholtz2024/blob/main/assets/streak.png)
+
 ## Summary
 This repository contains two smaller solvers that are representative of workloads that may 
 be encountered in the CFD industry. One of them is a smaller, simpler case that simulates
