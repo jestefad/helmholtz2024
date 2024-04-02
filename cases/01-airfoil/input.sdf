@@ -1,0 +1,46 @@
+Grid
+{
+    ncell          = [20, 20, 16]
+    nblck          = [6,  6 , 1 ]
+    nexch          = [2,  2,  2 ]
+    bounds         = [-10.0, 10.0, -10.0, 10.0, -0.025, 0.075]
+    geom           = "surf.vtk"
+    sampl_dist     = 3.2
+    sampl_dist2    = 1.4
+    out_sampl_dist = 1.0
+    is_external    = true
+    periodic       = [false, false, true]
+    maxlevel       = 6
+}
+Refine
+{
+    dx_boundary  = 0.00071
+    dx_direction = 0
+    aspect       = [1.0, 0.8, 1.8]
+}
+Debug
+{
+    output_rhs      = false
+    output_rhs_name = single_thread
+    print_perf      = false
+}
+Config
+{
+    cfl          = 0.5
+    init_file    = "none"
+    nt_max       = 500000
+    nt_skip      = 500
+    restart_skip = 5000
+    do_restart   = false
+    nt_restart   = 5002
+    nt_surf      = 1000
+    do_output    = true
+    devices      = [0]
+}
+Fluid
+{
+    mach  = 0.4
+    aoa   = 13.3
+    gamma = 1.4
+    Rgas  = 287.1
+}
