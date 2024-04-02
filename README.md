@@ -27,7 +27,7 @@ The test cases rely on the presence of `mpicxx` and `nvcc` on the system path, a
 Both solvers will rely on the presence of two environment variables available at compile time:
 
 - `SPADE` should point to the `spade` installation path, e.g. `export SPADE=/path/to/spade`, and
-- `SCIDF` should do the same for `scidf`, e.g. `export SPADE=/path/to/spade`
+- `SCIDF` should do the same for `scidf`, e.g. `export SCIDF=/path/to/scidf`
 
 Once this is the case, both solvers can be built in their own directories with `make`. Currently, both solvers produce a single executable, `vdf.x`, that
 can be run either as simply `./vdf.x` or as `./vdf.x file.sdf`, where `file.sdf` is the file containing the runtime parameters.
