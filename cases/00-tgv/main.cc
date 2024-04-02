@@ -68,13 +68,6 @@ int main(int argc, char** argv)
         const real_t zmin                = -spade::consts::pi;
         const real_t zmax                =  spade::consts::pi;
         
-        // const real_t xmin                = 0;
-        // const real_t xmax                = 64;
-        // const real_t ymin                = 0;
-        // const real_t ymax                = 64;
-        // const real_t zmin                = 0;
-        // const real_t zmax                = 64;
-        
         const real_t mach                = 0.1;
         const real_t reynolds            = 1600.0;
         
@@ -114,9 +107,6 @@ int main(int argc, char** argv)
         spade::grid::cartesian_grid_t grid(cells_in_block, blocks, coords, pool);
         spade::ctrs::array<bool, 3>   periodic = true;
         
-        // grid.refine_blocks(std::vector{16UL}, periodic, std::vector{spade::ctrs::array<bool, 3>{true, true,  true}},  spade::amr::constraints::factor2);
-        // grid.refine_blocks(std::vector{0UL},  periodic, std::vector{spade::ctrs::array<bool, 3>{true, false, false}}, spade::amr::constraints::factor2);
-        
         spade::io::mkdir("debug");
         spade::io::output_vtk("debug/grid.vtk", grid);
         const std::size_t num_points = grid.get_grid_size();
@@ -146,28 +136,6 @@ int main(int argc, char** argv)
             output.v() = -u0*cos(x[0]/L)*sin(x[1]/L)*cos(x[2]/L);
             output.w() =  0.0;
             
-            // const std::size_t addr_0 = pimg.map.compute_offset(0, ii);
-            // const std::size_t addr_1 = pimg.map.compute_offset(1, ii);
-            // const std::size_t addr_2 = pimg.map.compute_offset(2, ii);
-            // const std::size_t addr_3 = pimg.map.compute_offset(3, ii);
-            // const std::size_t addr_4 = pimg.map.compute_offset(4, ii);
-            
-            // output.p() = addr_0;
-            // output.T() = addr_1;
-            // output.u() = addr_2;
-            // output.v() = addr_3;
-            // output.w() = addr_4;
-            
-            // output.u() =  ii.i();
-            // output.v() =  ii.j();
-            // output.w() =  ii.k();
-            
-            // output.p() = 1.0;
-            // output.T() = 1.0;
-            // output.u() = x[0];
-            // output.v() = x[1];
-            // output.w() = x[2];
-            
             return output;
         };
         
@@ -182,11 +150,9 @@ int main(int argc, char** argv)
         spade::convective::rusanov_t flx(air);
         spade::convective::fweno_t fweno(air);
         spade::state_sensor::ducros_t ducr(real_t(1.0e-3));
-        // spade::state_sensor::const_sensor_t ducr(1.0e-3);
         
         spade::convective::hybrid_scheme_t hyb_scheme(central, fweno, ducr);
         auto conv_scheme = hyb_scheme;
-        // auto conv_scheme = central;
         
         const spade::viscous_laws::constant_viscosity_t visc_law(real_t(1.8e-5), real_t(0.72));
         
@@ -198,7 +164,6 @@ int main(int argc, char** argv)
         spade::viscous_laws::sgs_visc_t sgs_visc(visc_law, eddy_visc);
         
         const spade::viscous::visc_lr visc_scheme(sgs_visc, air);
-        // const spade::viscous::visc_lr visc_scheme(visc_law, air);
         
         //compute max wavespeed
         const auto sigma_func = [=] _sp_hybrid (const prim_t& q) { return sqrt(q.u()*q.u() + q.v()*q.v() + q.w()*q.w()) + sqrt(gamma*rgas*q.T()); };
@@ -230,9 +195,6 @@ int main(int argc, char** argv)
         int rhs_count = 0;
         real_t total_ms = 0.0;        
         
-        // performance eval
-        int n_output = 0;
-        int i_output = 0;
         auto calc_rhs = [&](auto& rhs_in, const auto& q, const auto& t)
         {
             spade::timing::tmr_t tmr;
@@ -246,14 +208,6 @@ int main(int argc, char** argv)
             ++rhs_count;
             total_ms += tmr.duration();
             
-            if (i_output < n_output)
-            {
-                if (pool.isroot()) print("output rhs first...");
-                spade::io::output_vtk("output", "firstR" + std::to_string(i_output), rhs_in);
-                spade::io::output_vtk("output", "firstQ" + std::to_string(i_output), q);
-                ++i_output;
-            }
-            
             if (compare_rhs)
             {
                 rhs_in = 0.0;
@@ -265,13 +219,11 @@ int main(int argc, char** argv)
                 print(spade::utils::where());
                 std::cin.get();
             }
-            // rhs_in = 0.0;
         };
         
         
         spade::time_integration::time_axis_t axis(time0, dt);
         spade::time_integration::ssprk3hs_t alg;
-        // spade::time_integration::rk2_t alg;
         spade::time_integration::integrator_data_t qdata(std::move(prim), std::move(rhs), alg);
         spade::time_integration::integrator_t time_int(axis, alg, qdata, calc_rhs, bc, trans);
         
@@ -295,19 +247,6 @@ int main(int argc, char** argv)
                 tmr.stop();
                 cur_cfl = sig_max*dt/dx;
                 if (pool.isroot()) print("reduc took", tmr.duration(), "ms");
-                
-                // if (std::isnan(cur_cfl))
-                // {
-                //     int uuu = 0;
-                //     if (pool.isroot()) print("CFL IS NAN");
-                //     for (const auto& rrr: qdata.residual_data)
-                //     {
-                //         if (pool.isroot()) print("Output RHS", uuu);
-                //         spade::io::output_vtk("output", "dbg" + std::to_string(uuu), rrr);
-                //         ++uuu;
-                //     }
-                //     abort();
-                // }
             }
             
             //print some nice things to the screen
