@@ -503,6 +503,8 @@ int main(int argc, char** argv)
           //auto periodic_bdy  = spade::boundary::xmin || spade::boundary::xmax || spade::boundary::zmin || spade::boundary::zmax;
         //
         //lambda to apply boundary conditions, fill ghosts and then exchange the solution
+        int i_bc_idx = 0;
+        int nstep = 3;
         auto boundary_cond = [&](parray_t& sol, const real_t& t)
         {
             //call wall model here and then pass wall model data into ghost filling routine
@@ -536,7 +538,11 @@ int main(int argc, char** argv)
             
             spade::timing::tmr_t t4;
             t4.start();
-            local::compute_wm(tau_w, grad_w, q_w,sampldata, ghosts, ips, ips2, visc, air, prim.device());
+            if (i_bc_idx % nstep == 0)
+            {
+                local::compute_wm(tau_w, grad_w, q_w,sampldata, ghosts, ips, ips2, visc, air, prim.device());
+                i_bc_idx = 0;
+            }
             t4.stop();
             
             spade::timing::tmr_t t5;
@@ -575,6 +581,7 @@ int main(int argc, char** argv)
             //spade::algs::boundary_fill(sol, extrap_bdy,   spade::boundary::extrapolate<1>);
             //spade::algs::boundary_fill(sol, periodic_bdy,    periodic);
             //spade::algs::boundary_fill(sol, const_bdy,  freestream);
+            i_bc_idx++;
         };
         //There are dispatch calls inside each of the routines call through boundary_cond
         boundary_cond(prim, time0);
