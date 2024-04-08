@@ -26,7 +26,7 @@ Debug
 }
 Config
 {
-    cfl          = 0.7
+    cfl          = 0.8
     init_file    = "none"
     nt_max       = 500000
     nt_skip      = 500
