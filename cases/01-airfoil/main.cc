@@ -89,10 +89,6 @@ int main(int argc, char** argv)
 
     //Creates an identity matrix
     spade::coords::identity<coor_t> coords;
-
-    //output path
-    std::filesystem::path out_path("surface");
-    if (!std::filesystem::is_directory(out_path)) std::filesystem::create_directory(out_path);
     
     spade::parallel::compute_env_t env(&argc, &argv, devices);
     env.exec([&](spade::parallel::pool_t& group)
@@ -176,11 +172,14 @@ int main(int argc, char** argv)
         const auto s0 = spade::convective::cent_keep<4>(air);
         //const auto tscheme = spade::convective::cent_keep<2>(air);
         //spade::convective::rusanov_t flx(air);
-        spade::convective::fweno_t s1(air);
+        // spade::convective::fweno_t s1(air);
+        spade::convective::rusanov_fds_t flx_fds(air);
+        spade::convective::weno_fds_t<decltype(flx_fds), spade::convective::disable_smooth> s1(air);
         //spade::convective::weno_t<decltype(flx), spade::convective::disable_smooth> tscheme(flx);
-        // spade::state_sensor::ducros_t ducr(1.0);
+        spade::state_sensor::ducros_t ducr(real_t(1.0));
         spade::state_sensor::const_sensor_t const_sens(real_t(8e-2));
         //spade::convective::hybrid_scheme_t tscheme(s0, s1, ducr);
+        auto sensor = const_sens;
 
         auto cfi_vals = local::compute_cfi_vals(grid);
         //const real_t alphamin = 5e-4;
@@ -189,7 +188,7 @@ int main(int argc, char** argv)
         local::cfi_diss_t<real_t> cfi_diss(cfi_vals.data(prim.device()), alphamin, alphamax, real_t(3.0), num_cells);
         //spade::convective::hybrid_scheme_t tscheme(s0, s1, cfi_diss);
 		// spade::convective::hybrid_scheme_t tscheme(s0, s1, cfi_diss);
-		spade::convective::hybrid_scheme_t tscheme(s0, s1, const_sens, spade::convective::full_flux);
+		spade::convective::hybrid_scheme_t tscheme(s0, s1, sensor, spade::convective::diss_flux);
 
         //const auto tscheme = spade::convective::cent_keep<2>(air);
         //spade::convective::first_order_t tscheme(air);
@@ -395,7 +394,7 @@ int main(int argc, char** argv)
             
             spade::timing::tmr_t t3;
             t3.start();
-            local::zero_ghost_rhs(resid, ghosts);            
+            local::zero_ghost_rhs(resid, ghosts);
             t3.stop();
             
             spade::timing::tmr_t t4;
@@ -617,7 +616,7 @@ int main(int argc, char** argv)
         
         //define the time-integration routine
         spade::time_integration::time_axis_t axis(time0, dt);
-        spade::time_integration::ssprk3hs_t alg;
+        spade::time_integration::ssprk3_t alg;
         // spade::time_integration::rk2_t alg;
         // spade::time_integration::crank_nicholson_t alg(rcalc, spade::utils::converge_crit_t{1e-5, 65}, 0.65);
     
@@ -678,8 +677,6 @@ int main(int argc, char** argv)
                 restart_data.data = time_int.solution().data;
                 //
                 local::write_restart(filename,restart_data);
-                // spade::grid::sample_array(surfdata, time_int.solution(), surf_sampl);
-                // local::output_surf_vtk(filename, geom, surfdata.data(spade::device::cpu));
                 if (group.isroot()) print("Done.");
               }
     

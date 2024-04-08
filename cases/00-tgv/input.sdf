@@ -6,9 +6,9 @@ nxb       = 12
 nzb       = 12
 // Use the above for performance checking
 
-// nx        = 32
-// ny        = 32
-// nz        = 32
+// nx        = 64
+// ny        = 64
+// nz        = 64
 // nxb       = 2
 // nyb       = 2
 // nzb       = 2
@@ -16,7 +16,7 @@ nzb       = 12
 
 cfl         = 0.25
 interval    = 250
-nt_max      = 4
+nt_max      = 25
 do_output   = false
 compare_rhs = false
 devices     = [0]

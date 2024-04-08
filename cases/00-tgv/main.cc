@@ -148,8 +148,11 @@ int main(int argc, char** argv)
         const auto c2 = spade::convective::cent_keep<4>(air);
         const auto central = spade::convective::cent_keep<4>(air);
         spade::convective::rusanov_t flx(air);
-        spade::convective::fweno_t fweno(air);
+        // spade::convective::fweno_t fweno(air);
         spade::state_sensor::ducros_t ducr(real_t(1.0e-3));
+        
+        spade::convective::rusanov_fds_t flx_fds(air);
+        spade::convective::weno_fds_t<decltype(flx_fds), spade::convective::disable_smooth> fweno(air);
         
         spade::convective::hybrid_scheme_t hyb_scheme(central, fweno, ducr, spade::convective::full_flux);
         auto conv_scheme = hyb_scheme;

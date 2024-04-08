@@ -34,7 +34,7 @@ Config
     do_restart   = false
     nt_restart   = 5002
     nt_surf      = 1000
-    do_output    = true
+    do_output    = false
     devices      = [0]
 }
 Fluid
