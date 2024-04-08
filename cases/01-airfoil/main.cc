@@ -109,7 +109,7 @@ int main(int argc, char** argv)
         // read the geometry file
         if (group.isroot()) print("Read", geom_fname);
         spade::geom::vtk_geom_t<3, 3, coor_t> geom;
-        spade::geom::read_vtk_geom(geom_fname, geom);
+        spade::geom::read_vtk_geom(geom_fname, geom, is_external);
         if (group.isroot()) print("Done");
     
         //array of boolean
@@ -189,7 +189,7 @@ int main(int argc, char** argv)
         local::cfi_diss_t<real_t> cfi_diss(cfi_vals.data(prim.device()), alphamin, alphamax, real_t(3.0), num_cells);
         //spade::convective::hybrid_scheme_t tscheme(s0, s1, cfi_diss);
 		// spade::convective::hybrid_scheme_t tscheme(s0, s1, cfi_diss);
-		spade::convective::hybrid_scheme_t tscheme(s0, s1, const_sens);
+		spade::convective::hybrid_scheme_t tscheme(s0, s1, const_sens, spade::convective::full_flux);
 
         //const auto tscheme = spade::convective::cent_keep<2>(air);
         //spade::convective::first_order_t tscheme(air);
@@ -377,13 +377,12 @@ int main(int argc, char** argv)
         const auto srcc = [=] _sp_hybrid (const prim_t& q) { return flux_t{0.0, 0.0, 9.86, 0.0, 0.0}; };
         auto calc_rhs = [&](auto& resid, const auto& sol, const auto& t)
         {
-            resid = 0.0;
             spade::timing::tmr_t t0;
             t0.start();
-            spade::pde_algs::flux_div(sol, resid, spade::omni::compose(tscheme, vscheme), spade::pde_algs::ldbalnp);
+            const auto traits = spade::algs::make_traits(spade::pde_algs::ldbalnp, spade::pde_algs::overwrite);
+            spade::pde_algs::flux_div(sol, resid, spade::omni::compose(tscheme, vscheme), traits);
             t0.stop();
-            //spade::pde_algs::source_term(sol, resid, srcc);
-            //local::rhs_keep(sol,resid,air);
+            
             spade::timing::tmr_t t1;
             t1.start();
             local::rhs_irreg_visc(sol,resid,air,visc,vscheme,ghosts,sampldata2,ips,tau_w,q_w);
@@ -393,7 +392,7 @@ int main(int argc, char** argv)
             t2.start();
             local::rhs_irreg_conv(sol,resid,air,tscheme,ghosts,sampldata2,ips,tau_w,q_w);
             t2.stop();
-            //local::rhs_keep_irreg();
+            
             spade::timing::tmr_t t3;
             t3.start();
             local::zero_ghost_rhs(resid, ghosts);            
@@ -684,10 +683,23 @@ int main(int argc, char** argv)
                 if (group.isroot()) print("Done.");
               }
     
-            //calling the time integrator
+            spade::timing::tmr_t tt;
+            tt.start();
+            time_int.advance();
+            tt.stop();
+            if (group.isroot())
             {
-                spade::timing::scoped_tmr_t tmr("adv");
-                time_int.advance();
+                const auto adv_ms  = tt.duration();
+                const auto adv_min = adv_ms/(1000.0*60.0);
+                const auto deltaT  = dt;
+                const auto lchar   = 1.0;
+                const auto uchar   = Uinf;
+                const auto tchar   = lchar / uchar;
+                
+                const auto steps_per_char = tchar / deltaT;
+                const auto steps_per_min  = 1.0 / adv_min;
+                const auto min_per_char   = steps_per_char / steps_per_min;
+                print("Advance (ms): ", spade::utils::pad_str(adv_ms, 10), "Mins per tchar:", spade::utils::pad_str(min_per_char, 10));
             }
         }
     });

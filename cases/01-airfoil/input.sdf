@@ -26,7 +26,7 @@ Debug
 }
 Config
 {
-    cfl          = 0.5
+    cfl          = 0.7
     init_file    = "none"
     nt_max       = 500000
     nt_skip      = 500
@@ -39,8 +39,8 @@ Config
 }
 Fluid
 {
-    mach  = 0.4
-    aoa   = 13.3
+    mach  = 0.7
+    aoa   = 8.0
     gamma = 1.4
     Rgas  = 287.1
 }

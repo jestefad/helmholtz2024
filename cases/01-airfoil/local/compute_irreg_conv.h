@@ -4,11 +4,11 @@
 #include <stdio.h>
 
 namespace detail{
-	template <typename cent_t, typename diss_t, typename ducr_t, typename real_t>
-	_sp_hybrid inline auto swapdiss(const spade::convective::hybrid_scheme_t<cent_t, diss_t, ducr_t>& base, const real_t& new_diss_val)
+	template <typename cent_t, typename diss_t, typename ducr_t, typename real_t, typename flx_t>
+	_sp_hybrid inline auto swapdiss(const spade::convective::hybrid_scheme_t<cent_t, diss_t, ducr_t, flx_t>& base, const real_t& new_diss_val)
 	{
 		spade::state_sensor::const_sensor_t new_sensor(new_diss_val);
-		return spade::convective::hybrid_scheme_t(base.scheme0, base.scheme1, new_sensor);
+		return spade::convective::hybrid_scheme_t(base.scheme0, base.scheme1, new_sensor, base.flux_designator());
 	}
 
 	// template <typename cent_t, typename diss_t, typename ducr_t, typename real_t>
