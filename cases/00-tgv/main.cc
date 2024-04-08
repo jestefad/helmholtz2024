@@ -151,7 +151,7 @@ int main(int argc, char** argv)
         spade::convective::fweno_t fweno(air);
         spade::state_sensor::ducros_t ducr(real_t(1.0e-3));
         
-        spade::convective::hybrid_scheme_t hyb_scheme(central, fweno, ducr);
+        spade::convective::hybrid_scheme_t hyb_scheme(central, fweno, ducr, spade::convective::full_flux);
         auto conv_scheme = hyb_scheme;
         
         const spade::viscous_laws::constant_viscosity_t visc_law(real_t(1.8e-5), real_t(0.72));
@@ -199,10 +199,9 @@ int main(int argc, char** argv)
         {
             spade::timing::tmr_t tmr;
             tmr.start();
-            rhs_in = real_t(0.0);
-            const auto flux_algo = spade::pde_algs::ldbalnp;
+            const auto traits = spade::algs::make_traits(spade::pde_algs::ldbalnp, spade::pde_algs::overwrite);
             // const auto flux_algo = spade::pde_algs::basic;
-            spade::pde_algs::flux_div(q, rhs_in, spade::omni::compose(visc_scheme, conv_scheme), flux_algo);
+            spade::pde_algs::flux_div(q, rhs_in, spade::omni::compose(visc_scheme, conv_scheme), traits);
             tmr.stop();
             if (pool.isroot()) print("rhs: ", tmr.duration(), "ms");
             ++rhs_count;
@@ -214,7 +213,7 @@ int main(int argc, char** argv)
                 spade::pde_algs::flux_div(q, rhs_in, spade::omni::compose(visc_scheme, conv_scheme));
                 spade::io::output_vtk("output", "rhs_0", rhs_in);
                 rhs_in = 0.0;
-                spade::pde_algs::flux_div(q, rhs_in, spade::omni::compose(visc_scheme, conv_scheme), flux_algo);
+                spade::pde_algs::flux_div(q, rhs_in, spade::omni::compose(visc_scheme, conv_scheme), traits);
                 spade::io::output_vtk("output", "rhs_1", rhs_in);
                 print(spade::utils::where());
                 std::cin.get();
