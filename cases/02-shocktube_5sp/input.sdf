@@ -1,0 +1,28 @@
+nx        = 32
+ny        = 32
+nz        = 32
+nxb       = 8
+nyb       = 2
+nzb       = 2
+// Use the above for performance checking
+
+// nx        = 32
+// ny        = 32
+// nz        = 32
+// nxb       = 2
+// nyb       = 2
+// nzb       = 2
+
+
+cfl         = 0.10
+interval    = 250
+nt_max      = 10000
+do_output   = true
+compare_rhs = false
+devices     = [0]
+
+// Reacting flow parameters
+speciesFile = speciesData.inp
+gibbsFile   = gibbsEnergy.inp
+reactionFile= reactionData.inp
+speciesList = [N2,O2,NO,N,O]
