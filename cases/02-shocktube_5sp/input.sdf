@@ -1,9 +1,9 @@
 nx        = 32
 ny        = 32
 nz        = 32
-nxb       = 1
-nyb       = 1
-nzb       = 1
+nxb       = 8
+nyb       = 2
+nzb       = 2
 // Use the above for performance checking
 
 // nx        = 32
@@ -15,10 +15,10 @@ nzb       = 1
 
 
 cfl         = 0.1
-interval    = 1
-nt_max      = 1
-do_output   = true
-output_rhs  = true
+interval    = 100
+nt_max      = 800
+do_output   = false
+output_rhs  = false
 devices     = [0]
 
 // Performance checking

@@ -165,9 +165,9 @@ int main(int argc, char** argv)
 				// Right state
 				output.rhoN2() = 0.767*0.11562168;
 				output.rhoO2() = 0.233*0.11562168;
-				output.rhoNO() = 1E-30*0.11562168;
-				output.rhoN()  = 1E-30*0.11562168;
-				output.rhoO()  = 1E-30*0.11562168;
+				output.rhoNO() = 1E-10*0.11562168;
+				output.rhoN()  = 1E-10*0.11562168;
+				output.rhoO()  = 1E-10*0.11562168;
 				output.T()     = 300.0;
 				output.Tv()    = 300.0;
 				output.u()     = 0.0;
@@ -197,7 +197,7 @@ int main(int argc, char** argv)
 
 		// Create state transformation function
 		cons_t transform_state;
-		spade::fluid_state::state_transform_t trans(transform_state, air5);		
+		spade::fluid_state::state_transform_t trans(transform_state, air5);
 		
 		// Lambda for left state BC
 		const auto leftState = [=] _sp_hybrid (const prim_t& q_domain, const prim_t& q_ghost, const point_type& x_g, const int dir)
@@ -220,11 +220,11 @@ int main(int argc, char** argv)
 		const auto rightState = [=] _sp_hybrid (const prim_t& q_domain, const prim_t& q_ghost, const point_type& x_g, const int dir)
         {
 			prim_t qguard;
-			qguard.rhoN2() = 0.767*0.11562168;
-			qguard.rhoO2() = 0.233*0.11562168;
-			qguard.rhoNO() = 1E-30*0.11562168;
-			qguard.rhoN()  = 1E-30*0.11562168;
-			qguard.rhoO()  = 1E-30*0.11562168;
+			qguard.rhoN2() = 0.767*0.115621688;
+			qguard.rhoO2() = 0.233*0.115621688;
+			qguard.rhoNO() = 1E-10*0.115621688;
+			qguard.rhoN()  = 1E-10*0.115621688;
+			qguard.rhoO()  = 1E-10*0.115621688;
 			qguard.T()     = 300.0;
 			qguard.Tv()    = 300.0;
 			qguard.u()     = 0.0;
@@ -292,8 +292,6 @@ int main(int argc, char** argv)
 		// Set source term
 		spade::fluid_state::chem_source_t chem_source(air5, react5);
 
-		int count=0;
-		
 		// Set RHS lambda
 		auto calc_rhs = [&](auto& rhs_in, const auto& prim_in, const auto& t)
      	{
@@ -304,7 +302,7 @@ int main(int argc, char** argv)
 			spade::timing::tmr_t t0;
 			t0.start();
 			//spade::pde_algs::flux_div(prim, rhs, spade::omni::compose(inviscidScheme, viscousScheme), spade::pde_algs::ldbalnp);
-			//spade::pde_algs::flux_div(prim_in, rhs_in, inviscidScheme);
+			spade::pde_algs::flux_div(prim_in, rhs_in, inviscidScheme);
 			t0.stop();
 			
 			// Add chemical source term
@@ -342,7 +340,6 @@ int main(int argc, char** argv)
                 print(fmt1);
                 print();
             }
-			++count;
 		};
 
 		// Setup time integration
