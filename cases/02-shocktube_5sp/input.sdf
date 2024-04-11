@@ -1,9 +1,9 @@
 nx        = 32
 ny        = 32
 nz        = 32
-nxb       = 8
-nyb       = 2
-nzb       = 2
+nxb       = 1
+nyb       = 1
+nzb       = 1
 // Use the above for performance checking
 
 // nx        = 32
@@ -14,12 +14,15 @@ nzb       = 2
 // nzb       = 2
 
 
-cfl         = 0.10
-interval    = 250
-nt_max      = 10000
+cfl         = 0.1
+interval    = 1
+nt_max      = 1
 do_output   = true
-compare_rhs = false
+output_rhs  = true
 devices     = [0]
+
+// Performance checking
+print_perf  = false
 
 // Reacting flow parameters
 speciesFile = speciesData.inp

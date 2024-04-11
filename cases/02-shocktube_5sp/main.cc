@@ -52,9 +52,10 @@ int main(int argc, char** argv)
     const int    interval            = input["interval"];
     const int    nt_max              = input["nt_max"];
     const bool   do_output           = input["do_output"];
-    const bool   compare_rhs         = input["compare_rhs"];
+    const bool   output_rhs          = input["output_rhs"];
     const real_t targ_cfl            = input["cfl"];
     const std::vector<int> devices   = input["devices"];
+	const bool        print_perf     = input["print_perf"];
     const std::string species_fname  = input["speciesFile"];
 	const std::string gibbs_fname    = input["gibbsFile"];
 	const std::string reaction_fname = input["reactionFile"];
@@ -148,12 +149,11 @@ int main(int argc, char** argv)
 			if (x[0]<0.5)
 			{
 				// Left state
-				output.YN2()   = (4.45191405E-2);
-				output.YO2()   = (1.56276835E-5);
-				output.YNO()   = (1.03442127E-3);
-				output.YN()    = (7.21998130E-1);
-				output.YO()    = (2.32432681E-1);
-				output.p()     = 195000.0;
+				output.rhoN2() = (4.45191405E-2)*0.0384786646058913;
+				output.rhoO2() = (1.56276835E-5)*0.0384786646058913;
+				output.rhoNO() = (1.03442127E-3)*0.0384786646058913;
+				output.rhoN()  = (7.21998130E-1)*0.0384786646058913;
+				output.rhoO()  = (2.32432681E-1)*0.0384786646058913;
 				output.T()     = 9000.0;
 				output.Tv()    = 9000.0;
 				output.u()     = 0.0;
@@ -163,12 +163,11 @@ int main(int argc, char** argv)
 			else
 			{
 				// Right state
-				output.YN2()   = 0.767;
-				output.YO2()   = 0.233;
-				output.YNO()   = 1E-30;
-				output.YN()    = 1E-30;
-				output.YO()    = 1E-30;
-				output.p()     = 10000.0;
+				output.rhoN2() = 0.767*0.11562168;
+				output.rhoO2() = 0.233*0.11562168;
+				output.rhoNO() = 1E-30*0.11562168;
+				output.rhoN()  = 1E-30*0.11562168;
+				output.rhoO()  = 1E-30*0.11562168;
 				output.T()     = 300.0;
 				output.Tv()    = 300.0;
 				output.u()     = 0.0;
@@ -198,18 +197,17 @@ int main(int argc, char** argv)
 
 		// Create state transformation function
 		cons_t transform_state;
-		spade::fluid_state::state_transform_t trans(transform_state, air5);
+		spade::fluid_state::state_transform_t trans(transform_state, air5);		
 		
 		// Lambda for left state BC
 		const auto leftState = [=] _sp_hybrid (const prim_t& q_domain, const prim_t& q_ghost, const point_type& x_g, const int dir)
         {
 			prim_t qguard;
-			qguard.YN2()   = (4.45191405E-2);
-			qguard.YO2()   = (1.56276835E-5);
-			qguard.YNO()   = (1.03442127E-3);
-			qguard.YN()    = (7.21998130E-1);
-			qguard.YO()    = (2.32432681E-1);
-			qguard.p()     = 195000.0;
+			qguard.rhoN2() = (4.45191405E-2)*0.0384786646058913;
+			qguard.rhoO2() = (1.56276835E-5)*0.0384786646058913;
+			qguard.rhoNO() = (1.03442127E-3)*0.0384786646058913;
+			qguard.rhoN()  = (7.21998130E-1)*0.0384786646058913;
+			qguard.rhoO()  = (2.32432681E-1)*0.0384786646058913;
 			qguard.T()     = 9000.0;
 			qguard.Tv()    = 9000.0;
 			qguard.u()     = 0.0;
@@ -222,12 +220,11 @@ int main(int argc, char** argv)
 		const auto rightState = [=] _sp_hybrid (const prim_t& q_domain, const prim_t& q_ghost, const point_type& x_g, const int dir)
         {
 			prim_t qguard;
-			qguard.YN2()   = 0.767;
-			qguard.YO2()   = 0.233;
-			qguard.YNO()   = 1E-30;
-			qguard.YN()    = 1E-30;
-			qguard.YO()    = 1E-30;
-			qguard.p()     = 10000.0;
+			qguard.rhoN2() = 0.767*0.11562168;
+			qguard.rhoO2() = 0.233*0.11562168;
+			qguard.rhoNO() = 1E-30*0.11562168;
+			qguard.rhoN()  = 1E-30*0.11562168;
+			qguard.rhoO()  = 1E-30*0.11562168;
 			qguard.T()     = 300.0;
 			qguard.Tv()    = 300.0;
 			qguard.u()     = 0.0;
@@ -246,19 +243,41 @@ int main(int argc, char** argv)
      	{
 			
 			// Run exchange
+			spade::timing::tmr_t t0;
+			t0.start();
 			handle.exchange(q, pool);
-			
+			t0.stop();
+
+			spade::timing::tmr_t t1;
+			t1.start();
 			// X-min BC
 			spade::algs::boundary_fill(q, x_in, leftState);
 			
 			// X-max BC
 			spade::algs::boundary_fill(q, x_out, rightState);
+			t1.stop();
+
+			if (pool.isroot() && print_perf)
+            {
+                print("============================================== BDY ==============================================");
+                std::string fmt0;
+                int nn = 13;
+                fmt0 += spade::utils::pad_str("exchg  ",   nn);
+                fmt0 += spade::utils::pad_str("bfill-x", nn);
+                
+                std::string fmt1;
+                fmt1 += spade::utils::pad_str(t0.duration(), nn);
+                fmt1 += spade::utils::pad_str(t1.duration(), nn);
+                
+                print(fmt0);
+                print(fmt1);
+                print();
+            }
 			
 		};
 		
 		// Now we apply the BC onto primitive array and run exchange
 		boundary_cond(prim, time0);
-
 		
 		// Initialize viscous laws
 		// nothing here yet
@@ -272,6 +291,8 @@ int main(int argc, char** argv)
 
 		// Set source term
 		spade::fluid_state::chem_source_t chem_source(air5, react5);
+
+		int count=0;
 		
 		// Set RHS lambda
 		auto calc_rhs = [&](auto& rhs_in, const auto& prim_in, const auto& t)
@@ -280,16 +301,48 @@ int main(int argc, char** argv)
 			rhs_in = real_t(0.0);
 			
 			// Compute flux divergence
+			spade::timing::tmr_t t0;
+			t0.start();
 			//spade::pde_algs::flux_div(prim, rhs, spade::omni::compose(inviscidScheme, viscousScheme), spade::pde_algs::ldbalnp);
-			print("RHS start");
-			spade::pde_algs::flux_div(prim_in, rhs_in, inviscidScheme);
-			print("RHS end");
+			//spade::pde_algs::flux_div(prim_in, rhs_in, inviscidScheme);
+			t0.stop();
 			
 			// Add chemical source term
-			print("Source start");
+			spade::timing::tmr_t t1;
+			t1.start();
 			spade::pde_algs::source_term(prim_in, rhs_in, chem_source);
-			print("Source end");
+			t1.stop();
+
+			if (output_rhs)
+			{
+				if (pool.isroot()) print("Output rhs...");
+				std::string nstr = spade::utils::zfill(count, 8);
+				std::string filename = "rhs_in"+nstr;
+				spade::io::output_vtk("output", filename, rhs_in);
+
+				if (pool.isroot()) print("Output prim...");
+				nstr = spade::utils::zfill(count, 8);
+				filename = "prim_in"+nstr;
+				spade::io::output_vtk("output", filename, prim_in);
+			}
 			
+			if (pool.isroot() && print_perf)
+            {
+                print("============================================== RHS ==============================================");
+                std::string fmt0;
+                int nn = 20;
+                fmt0 += spade::utils::pad_str("flux_div", nn);
+				fmt0 += spade::utils::pad_str("source  ", nn);
+                
+                std::string fmt1;
+                fmt1 += spade::utils::pad_str(t0.duration(), nn);
+                fmt1 += spade::utils::pad_str(t1.duration(), nn);
+                
+                print(fmt0);
+                print(fmt1);
+                print();
+            }
+			++count;
 		};
 
 		// Setup time integration
@@ -334,7 +387,7 @@ int main(int argc, char** argv)
 
 			
 			// Solution output frequency
-            if ((nt%interval == 0) && do_output)
+            if ((nt%interval == 0) && do_output || nt==nt_max)
             {
                 if (pool.isroot()) print("Output solution...");
                 std::string nstr = spade::utils::zfill(nt, 8);
@@ -350,13 +403,16 @@ int main(int argc, char** argv)
             }
 
 			// Advance solution
-			time_int.advance();
+			{
+				spade::timing::scoped_tmr_t tmr("adv");
+				time_int.advance();
+			}
 
 			// Count the timesteps
 			adv_count ++;
 		}
 		
     });
-    
+	
     return 0;
 }
