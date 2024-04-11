@@ -154,8 +154,10 @@ int main(int argc, char** argv)
         spade::convective::rusanov_fds_t flx_fds(air);
         spade::convective::weno_fds_t<decltype(flx_fds), spade::convective::disable_smooth> fweno(air);
         
-        spade::convective::hybrid_scheme_t hyb_scheme(central, fweno, ducr, spade::convective::full_flux);
+        spade::convective::hybrid_scheme_t hyb_scheme(central, fweno, ducr, spade::convective::diss_flux);
         auto conv_scheme = hyb_scheme;
+        
+        // auto conv_scheme = central;
         
         const spade::viscous_laws::constant_viscosity_t visc_law(real_t(1.8e-5), real_t(0.72));
         
@@ -203,7 +205,6 @@ int main(int argc, char** argv)
             spade::timing::tmr_t tmr;
             tmr.start();
             const auto traits = spade::algs::make_traits(spade::pde_algs::ldbalnp, spade::pde_algs::overwrite);
-            // const auto flux_algo = spade::pde_algs::basic;
             spade::pde_algs::flux_div(q, rhs_in, spade::omni::compose(visc_scheme, conv_scheme), traits);
             tmr.stop();
             if (pool.isroot()) print("rhs: ", tmr.duration(), "ms");
