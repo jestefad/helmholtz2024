@@ -1,0 +1,53 @@
+Grid
+{
+    nxyz        = [16,16,16]
+    nblks       = [2,2,2]
+    nexch       = [2, 2, 2]
+    bounds      = [-0.2, 0.0, 0.2, 0.0, 0.2, 0.0]
+    geom        = "sphere.vtk"
+    sampl_dist  = 3.0
+    sampl_dist2 = 1.0
+    is_external = true
+    periodic    = [false, false, false]
+    maxlevel    = 4
+}
+Refine
+{
+    dx_boundary  = 0.001
+    dx_direction = 0
+    aspect       = [1.0, 1.0, 1.0]
+}
+Debug
+{
+    print_perf  = false
+    output_rhs  = false
+}
+Config
+{
+    cfl         = 0.5
+    interval    = 1000
+    nt_max      = 10000
+    do_output   = false
+    devices     = [0]
+    do_restart  = false
+    nt_restart  = 0
+    restart_skip= 1000
+}
+Fluid
+{
+    rhoinf= 0.003255
+    Yinf  = [0.7356,0.1340,0.0509,1E-10,0.0795]
+    Uinf  = 4776
+    aoa   = 0.0
+    Tinf  = 694.0
+    Tvinf = 694.0
+}
+Multispecies
+{
+    speciesFile  = speciesData.inp
+    gibbsFile    = gibbsEnergy.inp
+    vibFile      = vibEnergy.inp
+    elecFile     = elecEnergy.inp
+    reactionFile = reactionData.inp
+    speciesList  = [N2,O2,NO,N,O]
+}
