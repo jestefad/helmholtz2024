@@ -26,10 +26,10 @@ Debug
 }
 Config
 {
-    cfl          = 0.8
+    cfl          = 0.75
     init_file    = "none"
     nt_max       = 500000
-    nt_skip      = 500
+    nt_skip      = 2500
     restart_skip = 5000
     do_restart   = false
     nt_restart   = 5002
@@ -40,7 +40,7 @@ Config
 Fluid
 {
     mach  = 0.7
-    aoa   = 8.0
+    aoa   = 4.0
     gamma = 1.4
     Rgas  = 287.1
 }

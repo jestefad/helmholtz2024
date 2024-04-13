@@ -14,8 +14,8 @@ nzb       = 12
 // nzb       = 2
 
 
-cfl         = 0.25
-interval    = 250
+cfl         = 0.65
+interval    = 1000
 nt_max      = 25
 do_output   = false
 compare_rhs = false

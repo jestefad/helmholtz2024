@@ -115,7 +115,7 @@ int main(int argc, char** argv)
         
         //create arrays residing on the grid
         prim_t fill1 = 0.0;
-        spade::grid::grid_array prim(grid, fill1, exchange_cells, spade::device::best, spade::mem_map::tiled);
+        spade::grid::grid_array prim(grid, fill1, exchange_cells, spade::device::best, spade::mem_map::tiled_small);
         
         flux_t fill2 = 0.0;
         spade::grid::grid_array rhs (grid, fill2, {0, 0, 0},      spade::device::best, spade::mem_map::tiled);
@@ -204,8 +204,9 @@ int main(int argc, char** argv)
         {
             spade::timing::tmr_t tmr;
             tmr.start();
-            const auto traits = spade::algs::make_traits(spade::pde_algs::ldbalnp, spade::pde_algs::overwrite);
+            const auto traits = spade::algs::make_traits(spade::pde_algs::fldbc, spade::pde_algs::overwrite);
             spade::pde_algs::flux_div(q, rhs_in, spade::omni::compose(visc_scheme, conv_scheme), traits);
+            // spade::pde_algs::flux_div(q, rhs_in, central, traits);
             tmr.stop();
             if (pool.isroot()) print("rhs: ", tmr.duration(), "ms");
             ++rhs_count;
@@ -226,7 +227,7 @@ int main(int argc, char** argv)
         
         
         spade::time_integration::time_axis_t axis(time0, dt);
-        spade::time_integration::ssprk3hs_t alg;
+        spade::time_integration::ssprk3_t alg;
         spade::time_integration::integrator_data_t qdata(std::move(prim), std::move(rhs), alg);
         spade::time_integration::integrator_t time_int(axis, alg, qdata, calc_rhs, bc, trans);
         
