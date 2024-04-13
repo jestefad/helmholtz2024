@@ -3,17 +3,16 @@ Grid
     nxyz        = [16,16,16]
     nblks       = [2,2,2]
     nexch       = [2, 2, 2]
-    bounds      = [-0.2, 0.0, 0.2, 0.0, 0.2, 0.0]
+    bounds      = [-0.2, 0.0, 0.0, 0.2, 0.0, 0.2]
     geom        = "sphere.vtk"
-    sampl_dist  = 3.0
-    sampl_dist2 = 1.0
+    sampl_dist  = 1.5
     is_external = true
     periodic    = [false, false, false]
     maxlevel    = 4
 }
 Refine
 {
-    dx_boundary  = 0.001
+    dx_boundary  = 0.002
     dx_direction = 0
     aspect       = [1.0, 1.0, 1.0]
 }
@@ -24,10 +23,10 @@ Debug
 }
 Config
 {
-    cfl         = 0.5
-    interval    = 1000
+    cfl         = 0.25
+    interval    = 25
     nt_max      = 10000
-    do_output   = false
+    do_output   = true
     devices     = [0]
     do_restart  = false
     nt_restart  = 0
@@ -46,8 +45,6 @@ Multispecies
 {
     speciesFile  = speciesData.inp
     gibbsFile    = gibbsEnergy.inp
-    vibFile      = vibEnergy.inp
-    elecFile     = elecEnergy.inp
     reactionFile = reactionData.inp
     speciesList  = [N2,O2,NO,N,O]
 }

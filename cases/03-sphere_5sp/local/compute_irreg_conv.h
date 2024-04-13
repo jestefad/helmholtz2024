@@ -3,15 +3,6 @@
 #include <iostream>
 #include <stdio.h>
 
-namespace detail{
-	template <typename cent_t, typename diss_t, typename ducr_t, typename real_t, typename flx_t>
-	_sp_hybrid inline auto swapdiss(const spade::convective::hybrid_scheme_t<cent_t, diss_t, ducr_t, flx_t>& base, const real_t& new_diss_val)
-	{
-		spade::state_sensor::const_sensor_t new_sensor(new_diss_val);
-		return spade::convective::hybrid_scheme_t(base.scheme0, base.scheme1, new_sensor, base.flux_designator());
-	}
-}
-
 namespace local
 {
 	template <typename ghost_t, typename array_t, typename gas_t, typename rhs_t, typename tscheme_t, typename xs_t>
@@ -73,26 +64,20 @@ namespace local
 				// compute viscous flux at (i,j+1/2)
 				//
 				flux_t flux_p,flux_m;
-				spade::grid::face_idx_t iface_p = spade::grid::cell_to_face(icell, dir, 1);//spade::utils::max(sign,0));
+				spade::grid::face_idx_t iface_p = spade::grid::cell_to_face(icell, dir, 1);
 				//
-				const real_t local_diss = 8e-2;
-				auto new_tscheme = detail::swapdiss(tscheme,local_diss);
-				using new_scheme_t = typename spade::utils::remove_all<decltype(new_tscheme)>::type;
-				using stencil_type = spade::omni::stencil_union<typename tscheme_t::omni_type, typename new_scheme_t::omni_type>;
+				using stencil_type = spade::omni::stencil_union<typename tscheme_t::omni_type>;
 				using vdata_t = spade::omni::stencil_data_t<stencil_type, array_t>;
-				//
 				vdata_t input_data;
 				spade::omni::retrieve(grid_img,prim_img,iface_p,input_data);
 				//
 				flux_t flux_p_reg = tscheme(input_data);
-				flux_p            = new_tscheme(input_data);
 				//
 				
 				spade::grid::face_idx_t iface_m = spade::grid::cell_to_face(icell, dir, 0);
 				spade::omni::retrieve(grid_img,prim_img,iface_m,input_data);
 				//
 				flux_t flux_m_reg = tscheme(input_data);
-				flux_m            = new_tscheme(input_data);
 				//
 				//apply divergence (start with assuming regular stencil)
 				bool can_set_rhs = true;
@@ -108,11 +93,11 @@ namespace local
 					//top: sign=-1 and bottom: sign=1
 					if (sign > 0)
 					{
-						temp -= ( flux_m_reg - flux_m)/dx;
+						temp -= ( flux_m_reg)/dx;
 					}
 					else
 					{
-						temp -= ( flux_p-flux_p_reg)/dx;
+						temp += (flux_p_reg)/dx;
 					}
 					rhs_img.set_elem(icell, temp);
 				}

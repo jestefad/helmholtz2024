@@ -38,19 +38,14 @@ namespace local
             spade::dispatch::execute(range, fill_ghst);
         }
     }
-  template <typename prim_t, typename rhs_t, typename grid_t, typename gas_t, typename arr_t>
-  inline void zero_rhs_inside(const prim_t& prim,const grid_t& grid, rhs_t& rhs,const gas_t& gas,const arr_t& inout)
+  template <typename prim_t, typename rhs_t, typename grid_t, typename arr_t>
+  inline void zero_rhs_inside(const prim_t& prim, const grid_t& grid, rhs_t& rhs, const arr_t& inout)
   {
     //using prim_t = typename decltype(prim)::alias_type;
-    using real_t = typename prim_t::value_type;
     using coor_t = typename grid_t::coord_type;
-    using index_t = spade::grid::cell_idx_t;
     using point_t = spade::coords::point_t<coor_t>;
 
-    //spade::ctrs::array<real_t, 3> dx = prim.get_grid().get_dx();
-    //auto grid = prim.get_grid();
     auto grid_img = grid.image(prim.device());
-    auto prim_img = prim.image();
     auto rhs_img  = rhs.image();
     auto inout_img= inout.image();
 
@@ -71,11 +66,9 @@ namespace local
     spade::dispatch::execute(var_range, loop);
   }
 
-	template<typename output_type, typename image_type, typename rtype, typename norm_type>
-	static output_type ghost_slipwall(const image_type& image, const rtype& distWallToImage, const rtype& distGhostToWall, const norm_type& nvec)
+	template<typename image_type, typename rtype, typename norm_type, typename output_type>
+	static void ghost_slipwall(const image_type& image, const rtype& distWallToImage, const rtype& distGhostToWall, const norm_type& nvec, output_type& ghost_bc)
 	{
-		// Initialize ghost bc
-		output_type ghost_bc;
 
 		// Copy image state over to enforce adiabatic and zero pressure gradient
 		ghost_bc = image;
@@ -83,34 +76,32 @@ namespace local
 		// Get normal and tangential velocity at image point
 		using vec_t = spade::ctrs::array<rtype, 3>;
 		vec_t u = {image.u(), image.v(), image.w()};
-		vec_t unorm = spade::ctrs::array_val_cast<rtype>(spade::ctrs::dot_prod(u, nvec)*nvec);
-		vec_t utang = u - unorm;
-		rtype utang_magn = spade::ctrs::array_norm(utang);
-					
-		// Copy tangential velocity
-		for (int i = 0; i < 3; ++i)
-		{
-			ghost_bc.u(i) = utang[i];
-		}
+		//vec_t unorm = spade::ctrs::array_val_cast<rtype>(spade::ctrs::dot_prod(u, nvec)*nvec);
+		//vec_t utang = u - unorm;
+		//			
+		//// Copy tangential velocity
+		//for (int i = 0; i < 3; ++i)
+		//{
+		//	ghost_bc.u(i) = utang[i];
+		//}
 
 		// Linear ramp on normal velocity
 		for (int i = 0; i < 3; ++i)
 		{
-			ghost_bc.u(i) += -(distGhostToWall / distWallToImage)*unorm[i];
+			ghost_bc.u(i) = -(distGhostToWall / distWallToImage)*u[i];
 		}
 		
-		return ghost_bc;
+		return;
 	}
     
   template <typename arr_t, typename ghost_t, typename xs_t, typename datas_t>
-  static void fill_ghost_vals(arr_t& array, const ghost_t& ghosts, const xs_t& xs, const datas_t& datas, const datas_t& datas2)
+  static void fill_ghost_vals(arr_t& array, const ghost_t& ghosts, const xs_t& xs, const datas_t& datas)
     {
         auto geom_img  = array.get_grid().image(spade::partition::local, array.device());
         auto arr_img   = array.image();
         auto ghst_img  = ghosts.image(array.device());
         auto xs_img    = spade::utils::make_vec_image(xs.data(array.device()));
         auto data_img  = spade::utils::make_vec_image(datas);
-        auto data2_img = spade::utils::make_vec_image(datas2);
         
         using alias_type = typename arr_t::alias_type;
         using real_t     = typename arr_t::fundamental_type;
@@ -138,14 +129,13 @@ namespace local
                 {
                     std::size_t idx_1d = offset+idx*nlayers+ilayer;
                     const alias_type& sampl_value  = data_img[idx_1d];
-                    const alias_type& sampl_value2 = data2_img[idx_1d];
                     const auto& nvec    = list.closest_normals[idx][ilayer];
                     const auto icell    = list.indices[idx][ilayer];
 					const auto& sampl_x = xs_img[idx_1d];
                     const auto& bndy_x  = list.closest_points[idx][ilayer];
                     const auto& ghst_x  = geom_img.get_coords(list.indices[idx][ilayer]);
                     const bool  do_fill = list.can_fill[idx][ilayer];
-
+					
 					//        +
 					//        |      |
 					//        |      d1
@@ -157,7 +147,8 @@ namespace local
 					const real_t d0 = spade::ctrs::array_norm(bndy_x  - ghst_x);
 					
 					// Set ghost bc
-					alias_type ghost_value = ghost_slipwall(sampl_value2, d1, d0, nvec);
+					alias_type ghost_value;
+					ghost_slipwall(sampl_value, d1, d0, nvec, ghost_value);
 					
 					//
 					if (ilayer==1)
@@ -190,7 +181,7 @@ namespace local
         auto diag_loop = [=] _sp_hybrid (const std::size_t& idx) mutable
         {
             std::size_t idx_1d = offset+idx;
-            const alias_type& sampl_value2 = data2_img[idx_1d];
+            const alias_type& sampl_value = data_img[idx_1d];
             const auto& nvec    = list.closest_normals[idx];
             const auto icell    = list.indices[idx];
             const auto& bndy_x  = list.closest_points[idx];
@@ -208,9 +199,10 @@ namespace local
             const real_t d0 = spade::ctrs::array_norm(bndy_x  - ghst_x);
 
 			// Set ghost bc
-			alias_type ghost_value = ghost_slipwall(sampl_value2, d1, d0, nvec);
+			alias_type ghost_value;
+			ghost_slipwall(sampl_value, d1, d0, nvec, ghost_value);
 
-            // if (do_fill) arr_img.set_elem(icell, ghost_value);
+			if (do_fill) arr_img.set_elem(icell, ghost_value);
         };
         spade::dispatch::execute(diag_range, diag_loop, array.device());        
     }

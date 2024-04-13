@@ -31,10 +31,15 @@ namespace debug
 #include "scidf.h"
 #include "spade.h"
 
-using real_t = float;
-using prim_t = spade::fluid_state::prim_chem_t<real_t>;
-using cons_t = spade::fluid_state::cons_chem_t<real_t>;
-using flux_t = spade::fluid_state::flux_chem_t<real_t>;
+constexpr static std::size_t nspecies=5;
+constexpr static std::size_t nreactions=5;
+
+using real_t  = double;
+using prim_t  = spade::fluid_state::prim_chem_t<real_t, nspecies>;
+using cons_t  = spade::fluid_state::cons_chem_t<real_t, nspecies>;
+using flux_t  = spade::fluid_state::flux_chem_t<real_t, nspecies>;
+using gas_t   = spade::fluid_state::multicomponent_gas_t<real_t, nspecies>;
+using react_t = spade::fluid_state::reactionMechanism_t<real_t, nspecies, nreactions>; // Number of reactions
 
 int main(int argc, char** argv)
 {
@@ -85,19 +90,19 @@ int main(int argc, char** argv)
         const real_t zmax                = 0.25;
         
         // Define the gas model
-        spade::fluid_state::multicomponent_gas_t<real_t> air5;
+		gas_t air;
 
 		// Import species data
-		spade::fluid_state::import_species_data(species_fname, 5, speciesNames, air5);
+		spade::fluid_state::import_species_data(species_fname, speciesNames, air);
 
 		// Initialize reaction mechanism
-		spade::fluid_state::reactionMechanism_t<real_t> react5;
+		react_t react;
 
 		// Import gibbs energy data
-		spade::fluid_state::import_gibbsEnergy_data(gibbs_fname, 5, speciesNames, react5);
+		spade::fluid_state::import_gibbsEnergy_data(gibbs_fname, speciesNames, react);
 		
 		// Import reaction mechanism
-		spade::fluid_state::import_reaction_data(reaction_fname, 5, speciesNames, air5, react5);		
+		spade::fluid_state::import_reaction_data(reaction_fname, speciesNames, air, react);		
 		
 		// initialize block structure
         spade::ctrs::array<int, 3> num_blocks     = {nxb, nyb, nzb};
@@ -134,8 +139,8 @@ int main(int argc, char** argv)
         flux_t fill2 = 0.0;
         spade::grid::grid_array rhs (grid, fill2, {0, 0, 0},      spade::device::best, spade::mem_map::tiled);
 		
-		// Run exchange on primitive array
-        if (pool.isroot()) print("exchg.");
+		// Initialize exchange
+        if (pool.isroot()) print("init exchg.");
         auto handle = spade::grid::make_exchange(prim, periodic);
         if (pool.isroot()) print("done.");		
 		
@@ -149,30 +154,30 @@ int main(int argc, char** argv)
 			if (x[0]<0.5)
 			{
 				// Left state
-				output.rhoN2() = (4.45191405E-2)*0.0384786646058913;
-				output.rhoO2() = (1.56276835E-5)*0.0384786646058913;
-				output.rhoNO() = (1.03442127E-3)*0.0384786646058913;
-				output.rhoN()  = (7.21998130E-1)*0.0384786646058913;
-				output.rhoO()  = (2.32432681E-1)*0.0384786646058913;
-				output.T()     = 9000.0;
-				output.Tv()    = 9000.0;
-				output.u()     = 0.0;
-				output.v()     = 0.0;
-				output.w()     = 0.0;
+				output.Ys(0) = (4.45191405E-2);
+				output.Ys(1) = (1.56276835E-5);
+				output.Ys(2) = (1.03442127E-3);
+				output.Ys(3) = (7.21998130E-1);
+				output.p()   = 195000.0;
+				output.T()   = 9000.0;
+				output.Tv()  = 9000.0;
+				output.u()   = 0.0;
+				output.v()   = 0.0;
+				output.w()   = 0.0;
 			}
 			else
 			{
 				// Right state
-				output.rhoN2() = 0.767*0.11562168;
-				output.rhoO2() = 0.233*0.11562168;
-				output.rhoNO() = 1E-10*0.11562168;
-				output.rhoN()  = 1E-10*0.11562168;
-				output.rhoO()  = 1E-10*0.11562168;
-				output.T()     = 300.0;
-				output.Tv()    = 300.0;
-				output.u()     = 0.0;
-				output.v()     = 0.0;
-				output.w()     = 0.0;
+				output.Ys(0) = 0.767;
+				output.Ys(1) = 0.233;
+				output.Ys(2) = 1E-10;
+				output.Ys(3) = 1E-10;
+				output.p()   = 10000.0;
+				output.T()   = 300.0;
+				output.Tv()  = 300.0;
+				output.u()   = 0.0;
+				output.v()   = 0.0;
+				output.w()   = 0.0;
 			}
             
             return output;
@@ -185,7 +190,7 @@ int main(int argc, char** argv)
         if (pool.isroot()) print("done.");
 
 		// Compute max wavespeed
-		const auto sigma_func = [=] _sp_hybrid (const prim_t& q) {return sqrt(q.u()*q.u() + q.v()*q.v() + q.w()*q.w()) + spade::fluid_state::get_sos(q, air5);};
+		const auto sigma_func = [=] _sp_hybrid (const prim_t& q) {return sqrt(q.u()*q.u() + q.v()*q.v() + q.w()*q.w()) + spade::fluid_state::get_sos(q, air);};
 		const auto get_sigma  = spade::algs::make_reduction(prim, sigma_func, spade::algs::max);
 		const auto sigma_ini  = spade::algs::transform_reduce(prim, get_sigma);
 
@@ -197,22 +202,23 @@ int main(int argc, char** argv)
 
 		// Create state transformation function
 		cons_t transform_state;
-		spade::fluid_state::state_transform_t trans(transform_state, air5);
+		spade::fluid_state::state_transform_t trans(transform_state, air);		
 		
 		// Lambda for left state BC
 		const auto leftState = [=] _sp_hybrid (const prim_t& q_domain, const prim_t& q_ghost, const point_type& x_g, const int dir)
         {
 			prim_t qguard;
-			qguard.rhoN2() = (4.45191405E-2)*0.0384786646058913;
-			qguard.rhoO2() = (1.56276835E-5)*0.0384786646058913;
-			qguard.rhoNO() = (1.03442127E-3)*0.0384786646058913;
-			qguard.rhoN()  = (7.21998130E-1)*0.0384786646058913;
-			qguard.rhoO()  = (2.32432681E-1)*0.0384786646058913;
-			qguard.T()     = 9000.0;
-			qguard.Tv()    = 9000.0;
-			qguard.u()     = 0.0;
-			qguard.v()     = 0.0;
-			qguard.w()     = 0.0;
+			// Left state
+			qguard.Ys(0) = (4.45191405E-2);
+			qguard.Ys(1) = (1.56276835E-5);
+			qguard.Ys(2) = (1.03442127E-3);
+			qguard.Ys(3) = (7.21998130E-1);
+			qguard.p()   = 195000.0;
+			qguard.T()   = 9000.0;
+			qguard.Tv()  = 9000.0;
+			qguard.u()   = 0.0;
+			qguard.v()   = 0.0;
+			qguard.w()   = 0.0;
 			return qguard;
 		};
 		
@@ -220,16 +226,17 @@ int main(int argc, char** argv)
 		const auto rightState = [=] _sp_hybrid (const prim_t& q_domain, const prim_t& q_ghost, const point_type& x_g, const int dir)
         {
 			prim_t qguard;
-			qguard.rhoN2() = 0.767*0.115621688;
-			qguard.rhoO2() = 0.233*0.115621688;
-			qguard.rhoNO() = 1E-10*0.115621688;
-			qguard.rhoN()  = 1E-10*0.115621688;
-			qguard.rhoO()  = 1E-10*0.115621688;
-			qguard.T()     = 300.0;
-			qguard.Tv()    = 300.0;
-			qguard.u()     = 0.0;
-			qguard.v()     = 0.0;
-			qguard.w()     = 0.0;
+			// Right state
+			qguard.Ys(0) = 0.767;
+			qguard.Ys(1) = 0.233;
+			qguard.Ys(2) = 1E-10;
+			qguard.Ys(3) = 1E-10;
+			qguard.p()   = 10000.0;
+			qguard.T()   = 300.0;
+			qguard.Tv()  = 300.0;
+			qguard.u()   = 0.0;
+			qguard.v()   = 0.0;
+			qguard.w()   = 0.0;
 			return qguard;
 		};
 		
@@ -283,16 +290,18 @@ int main(int argc, char** argv)
 		// nothing here yet
 		
 		// Set convective scheme
-		const auto flux_func = spade::convective::rusanov_chem_t(air5);
-		spade::convective::weno_t inviscidScheme(flux_func);
+		const auto flux_func = spade::convective::rusanov_chem_t<real_t, air.nspecies()>(air);
+		//spade::convective::weno_t inviscidScheme(flux_func);
+		spade::convective::charweno_t inviscidScheme(flux_func, air);
 		
 		// Set viscous scheme
 		//spade::viscous::visc_lr viscousScheme();
 
 		// Set source term
-		spade::fluid_state::chem_source_t chem_source(air5, react5);
+		spade::fluid_state::chem_source_t<real_t, air.nspecies(), react.nreact()> chem_source(air, react);
 
 		// Set RHS lambda
+		int count = 0;
 		auto calc_rhs = [&](auto& rhs_in, const auto& prim_in, const auto& t)
      	{
 			// Initialize residual
@@ -308,7 +317,7 @@ int main(int argc, char** argv)
 			// Add chemical source term
 			spade::timing::tmr_t t1;
 			t1.start();
-			spade::pde_algs::source_term(prim_in, rhs_in, chem_source);
+			//spade::pde_algs::source_term(prim_in, rhs_in, chem_source);
 			t1.stop();
 
 			if (output_rhs)
@@ -340,6 +349,7 @@ int main(int argc, char** argv)
                 print(fmt1);
                 print();
             }
+			++count;
 		};
 
 		// Setup time integration
