@@ -46,13 +46,14 @@ namespace debug
 
 constexpr static std::size_t nspecies=5;
 constexpr static std::size_t nreactions=5;
+constexpr static std::size_t maxVibLevel=1;
 
 using real_t  = double;
 using coor_t  = double;
 using prim_t  = spade::fluid_state::prim_chem_t<real_t, nspecies>;
 using cons_t  = spade::fluid_state::cons_chem_t<real_t, nspecies>;
 using flux_t  = spade::fluid_state::flux_chem_t<real_t, nspecies>;
-using gas_t   = spade::fluid_state::multicomponent_gas_t<real_t, nspecies>;
+using gas_t   = spade::fluid_state::multicomponent_gas_t<real_t, nspecies, maxVibLevel>;
 using react_t = spade::fluid_state::reactionMechanism_t<real_t, nspecies, nreactions>; // Number of reactions
 
 int main(int argc, char** argv)
@@ -97,6 +98,7 @@ int main(int argc, char** argv)
 	
 	// Multispecies flags
     const std::string species_fname             = input["Multispecies"]["speciesFile"];
+	const std::string vib_fname                 = input["Multispecies"]["vibFile"];
 	const std::string gibbs_fname               = input["Multispecies"]["gibbsFile"];
 	const std::string reaction_fname            = input["Multispecies"]["reactionFile"];
 	const std::vector<std::string> speciesNames = input["Multispecies"]["speciesList"];
@@ -123,19 +125,16 @@ int main(int argc, char** argv)
         }
 		
         // Define the gas model
-        spade::fluid_state::multicomponent_gas_t<real_t, nspecies> air5;
+        spade::fluid_state::multicomponent_gas_t<real_t, nspecies, maxVibLevel> air5;
 
 		// Import species data
-		spade::fluid_state::import_species_data(species_fname, speciesNames, air5);
+		spade::fluid_state::import_species_data(species_fname, vib_fname, speciesNames, air5);
 		
 		// Initialize reaction mechanism
 		spade::fluid_state::reactionMechanism_t<real_t, nspecies, nreactions> react5;
-
-		// Import gibbs energy data
-		spade::fluid_state::import_gibbsEnergy_data(gibbs_fname, speciesNames, react5);
 		
 		// Import reaction mechanism
-		spade::fluid_state::import_reaction_data(reaction_fname, speciesNames, air5, react5);
+		spade::fluid_state::import_reaction_data(reaction_fname, gibbs_fname, speciesNames, air5, react5);
 		
 		// initialize block structure
 		spade::amr::amr_blocks_t blocks(nblks, bounds);
@@ -180,7 +179,7 @@ int main(int argc, char** argv)
 		// nothing here yet
 		
 		// Set convective scheme
-		const auto flux_func = spade::convective::rusanov_chem_t<real_t, nspecies>(air5);
+		const auto flux_func = spade::convective::rusanov_chem_t<real_t, nspecies, maxVibLevel>(air5);
 		spade::convective::charweno_t inviscidScheme(flux_func, air5);
 		//spade::convective::first_order_t inviscidScheme(flux_func);
 		//spade::convective::weno_t inviscidScheme(flux_func);
@@ -189,7 +188,7 @@ int main(int argc, char** argv)
 		//spade::viscous::visc_lr viscousScheme();
 
 		// Set source term
-		spade::fluid_state::chem_source_t<real_t, nspecies, nreactions> chem_source(air5, react5);
+		spade::fluid_state::chem_source_t<real_t, nspecies, nreactions, maxVibLevel> chem_source(air5, react5);
 		
         // Computing the ghost points
         if (pool.isroot()) print("Compute ghosts");

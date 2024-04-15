@@ -33,12 +33,13 @@ namespace debug
 
 constexpr static std::size_t nspecies=5;
 constexpr static std::size_t nreactions=5;
+constexpr static std::size_t maxVibLevel=1;
 
 using real_t  = double;
 using prim_t  = spade::fluid_state::prim_chem_t<real_t, nspecies>;
 using cons_t  = spade::fluid_state::cons_chem_t<real_t, nspecies>;
 using flux_t  = spade::fluid_state::flux_chem_t<real_t, nspecies>;
-using gas_t   = spade::fluid_state::multicomponent_gas_t<real_t, nspecies>;
+using gas_t   = spade::fluid_state::multicomponent_gas_t<real_t, nspecies, maxVibLevel>;
 using react_t = spade::fluid_state::reactionMechanism_t<real_t, nspecies, nreactions>; // Number of reactions
 
 int main(int argc, char** argv)
@@ -62,6 +63,7 @@ int main(int argc, char** argv)
     const std::vector<int> devices   = input["devices"];
 	const bool        print_perf     = input["print_perf"];
     const std::string species_fname  = input["speciesFile"];
+	const std::string vib_fname      = input["vibFile"];
 	const std::string gibbs_fname    = input["gibbsFile"];
 	const std::string reaction_fname = input["reactionFile"];
 	const std::vector<std::string> speciesNames = input["speciesList"];
@@ -93,16 +95,13 @@ int main(int argc, char** argv)
 		gas_t air;
 
 		// Import species data
-		spade::fluid_state::import_species_data(species_fname, speciesNames, air);
+		spade::fluid_state::import_species_data(species_fname, vib_fname, speciesNames, air);
 
 		// Initialize reaction mechanism
 		react_t react;
-
-		// Import gibbs energy data
-		spade::fluid_state::import_gibbsEnergy_data(gibbs_fname, speciesNames, react);
 		
 		// Import reaction mechanism
-		spade::fluid_state::import_reaction_data(reaction_fname, speciesNames, air, react);		
+		spade::fluid_state::import_reaction_data(reaction_fname, gibbs_fname, speciesNames, air, react);		
 		
 		// initialize block structure
         spade::ctrs::array<int, 3> num_blocks     = {nxb, nyb, nzb};
@@ -290,7 +289,7 @@ int main(int argc, char** argv)
 		// nothing here yet
 		
 		// Set convective scheme
-		const auto flux_func = spade::convective::rusanov_chem_t<real_t, air.nspecies()>(air);
+		const auto flux_func = spade::convective::rusanov_chem_t<real_t, air.nspecies(), maxVibLevel>(air);
 		//spade::convective::weno_t inviscidScheme(flux_func);
 		spade::convective::charweno_t inviscidScheme(flux_func, air);
 		
@@ -298,7 +297,7 @@ int main(int argc, char** argv)
 		//spade::viscous::visc_lr viscousScheme();
 
 		// Set source term
-		spade::fluid_state::chem_source_t<real_t, air.nspecies(), react.nreact()> chem_source(air, react);
+		spade::fluid_state::chem_source_t<real_t, air.nspecies(), react.nreact(), maxVibLevel> chem_source(air, react);
 
 		// Set RHS lambda
 		int count = 0;

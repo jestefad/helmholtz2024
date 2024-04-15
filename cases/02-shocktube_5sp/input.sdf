@@ -26,6 +26,7 @@ print_perf  = false
 
 // Reacting flow parameters
 speciesFile = speciesData.inp
+vibFile     = vibEnergy.inp
 gibbsFile   = gibbsEnergy.inp
 reactionFile= reactionData.inp
 speciesList = [N2,O2,NO,N,O]
