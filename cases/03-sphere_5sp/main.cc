@@ -47,8 +47,8 @@ namespace debug
 constexpr static std::size_t nspecies=5;
 constexpr static std::size_t nreactions=5;
 
-using real_t  = float;
-using coor_t    = double;
+using real_t  = double;
+using coor_t  = double;
 using prim_t  = spade::fluid_state::prim_chem_t<real_t, nspecies>;
 using cons_t  = spade::fluid_state::cons_chem_t<real_t, nspecies>;
 using flux_t  = spade::fluid_state::flux_chem_t<real_t, nspecies>;
@@ -103,7 +103,7 @@ int main(int argc, char** argv)
 
 	// Initial conditions
 	const real_t rhoinf                         = input["Fluid"]["rhoinf"];
-	const spade::ctrs::array<real_t, 5> Yinf    = input["Fluid"]["Yinf"];
+	const spade::ctrs::array<real_t, nspecies> Yinf = input["Fluid"]["Yinf"];
 	const real_t Uinf                           = input["Fluid"]["Uinf"];
 	const real_t aoa                            = input["Fluid"]["aoa"];
 	const real_t Tinf                           = input["Fluid"]["Tinf"];
@@ -121,7 +121,7 @@ int main(int argc, char** argv)
         {
             print("Num. threads:", devices.size());
         }
-        
+		
         // Define the gas model
         spade::fluid_state::multicomponent_gas_t<real_t, nspecies> air5;
 
@@ -182,6 +182,8 @@ int main(int argc, char** argv)
 		// Set convective scheme
 		const auto flux_func = spade::convective::rusanov_chem_t<real_t, nspecies>(air5);
 		spade::convective::charweno_t inviscidScheme(flux_func, air5);
+		//spade::convective::first_order_t inviscidScheme(flux_func);
+		//spade::convective::weno_t inviscidScheme(flux_func);
 		
 		// Set viscous scheme
 		//spade::viscous::visc_lr viscousScheme();
@@ -221,7 +223,8 @@ int main(int argc, char** argv)
 
 		// Create interpolation operators
         const auto exclude = [&](const spade::grid::cell_idx_t& ii) { return geom.is_interior(grid.get_coords(ii)); };
-        const auto strategy = spade::sampling::prioritize(spade::sampling::multilinear, spade::sampling::nearest, spade::sampling::force_nearest);
+        const auto strategy = spade::sampling::prioritize(spade::sampling::wlsqr, spade::sampling::nearest, spade::sampling::force_nearest);
+		//const auto strategy = spade::sampling::prioritize(spade::sampling::nearest, spade::sampling::nearest, spade::sampling::force_nearest);
 		
         if (pool.isroot()) print("Compute interp 1");
         auto interp  = [&](){
@@ -244,7 +247,6 @@ int main(int argc, char** argv)
         if (pool.isroot()) print("done.");		
 		
 		// Lambda for initial condition
-        auto pimg = prim.image();
         using point_type = decltype(grid)::coord_point_type;
         const auto ini = [=] _sp_hybrid (const point_type& x, const spade::grid::cell_idx_t& ii)
         {
@@ -267,8 +269,8 @@ int main(int argc, char** argv)
 			else
 			{
 				// Velocity ramp
-				output.u()   = Uinf * cos(theta) * spade::utils::min(1, dist / rampMax);
-				output.v()   = Uinf * sin(theta) * spade::utils::min(1, dist / rampMax);
+				output.u()   = Uinf * cos(theta);
+				output.v()   = Uinf * sin(theta);
 				output.w()   = 0.0;
 			}
 			for (int s = 0; s<output.nspecies(); ++s) output.Ys(s) = Yinf[s];
@@ -281,6 +283,14 @@ int main(int argc, char** argv)
         
         // Fill the initial condition
         spade::algs::fill_array(prim, ini);
+
+		// For debugging inviscid scheme (compile in CPU)
+		//spade::grid::cell_idx_t icell(1,0,0,65);
+		//spade::grid::face_idx_t iface = spade::grid::cell_to_face(icell, 0, 0);
+		//auto pimg = prim.image();
+		//const auto& grid_image = grid.image(spade::device::cpu);
+		//const auto flux = spade::algs::invoke_at(grid_image, pimg, iface, inviscidScheme);
+		//std::cin.get();
 		
 		// Read initial condition from restart file if needed
         if (do_restart)
@@ -299,20 +309,20 @@ int main(int argc, char** argv)
         handle.exchange(prim, pool);
         if (pool.isroot()) print("done.");
 
-		// Interpolate into the image points
+		// Interpolate onto the image points
         if (pool.isroot()) print("Sample data");
         auto sampldata  = spade::sampling::sample_array(prim, interp);
         if (pool.isroot()) print("Done");
 
 		// Compute max wavespeed
-		const auto sigma_func = [=] _sp_hybrid (const prim_t& q) {return sqrt(q.u()*q.u() + q.v()*q.v() + q.w()*q.w()) + spade::fluid_state::get_sos(q, air5);};
-		const auto get_sigma  = spade::algs::make_reduction(prim, sigma_func, spade::algs::max);
-		const auto sigma_ini  = spade::algs::transform_reduce(prim, get_sigma);
+		//const auto sigma_func = [=] _sp_hybrid (const prim_t& q) {return sqrt(q.u()*q.u() + q.v()*q.v() + q.w()*q.w()) + spade::fluid_state::get_sos(q, air5);};
+		//const auto get_sigma  = spade::algs::make_reduction(prim, sigma_func, spade::algs::max);
+		//const auto sigma_ini  = spade::algs::transform_reduce(prim, get_sigma);
 
 		// Calculate timestep
 		real_t time0    = float_t(0.0);
-		const real_t dt = targ_cfl * dx / sigma_ini;
-		print("umax+sos = ",sigma_ini);
+		const real_t dt = 1E-7;//targ_cfl * dx / sigma_ini;
+		//print("umax+sos = ",sigma_ini);
 		print("dt       = ",dt);
 
 		// Create state transformation function
@@ -320,6 +330,7 @@ int main(int argc, char** argv)
 		spade::fluid_state::state_transform_t trans(transform_state, air5);
 
 		// Set RHS lambda
+		int count = 0;
 		auto calc_rhs = [&](auto& rhs_in, const auto& prim_in, const auto& t)
      	{
 			// Initialize residual
@@ -328,20 +339,21 @@ int main(int argc, char** argv)
 			// Compute flux divergence
 			spade::timing::tmr_t t0;
 			t0.start();
-			//spade::pde_algs::flux_div(prim, rhs, spade::omni::compose(inviscidScheme, viscousScheme), spade::pde_algs::ldbalnp);
-			spade::pde_algs::flux_div(prim_in, rhs_in, inviscidScheme);
+			const auto traits = spade::algs::make_traits(spade::pde_algs::ldbalnp, spade::pde_algs::overwrite);
+			//spade::pde_algs::flux_div(prim, rhs, spade::omni::compose(inviscidScheme, viscousScheme), traits);
+			spade::pde_algs::flux_div(prim_in, rhs_in, inviscidScheme, traits);
 			t0.stop();
 
-			// Irregular convective scheme
+			// Irregular convective scheme (no need since we don't need to modify scheme at IB)
 			spade::timing::tmr_t t1;
 			t1.start();
-			local::rhs_irreg_conv(prim_in, rhs_in, air5, inviscidScheme, ghosts, ips); // CHECK THIS !!!!
+			//local::rhs_irreg_conv(prim_in, rhs_in, air5, inviscidScheme, ghosts, ips); // CHECK THIS !!!!
 			t1.stop();
 			
 			// Add chemical source term
 			spade::timing::tmr_t t2;
 			t2.start();
-			//spade::pde_algs::source_term(prim_in, rhs_in, chem_source);
+			spade::pde_algs::source_term(prim_in, rhs_in, chem_source);
 			t2.stop();
 
 			spade::timing::tmr_t t3;
@@ -376,6 +388,15 @@ int main(int argc, char** argv)
                 print(fmt1);
                 print();
             }
+
+			if (output_rhs)
+			{
+				++count;
+				if (pool.isroot()) print("Output rhs...");
+                std::string nstr = spade::utils::zfill(count, 8);
+                std::string filename = "rhs"+nstr;
+                spade::io::output_vtk("output", filename, rhs_in);
+			}
 		};
 		
 		// Lambda for supersonic_inflow
@@ -460,9 +481,9 @@ int main(int argc, char** argv)
 			// Ghost filling
 			spade::timing::tmr_t t5;
             t5.start();
-            local::fill_ghost_vals(q, ghosts, ips, sampldata); // CHECK THIS !!!!
+            local::fill_ghost_vals(q, ghosts, ips, sampldata);
             t5.stop();
-
+			
 			if (pool.isroot() && print_perf)
             {
                 print("============================================== BDY ==============================================");
@@ -518,9 +539,9 @@ int main(int argc, char** argv)
 			if (nt % cfl_sample_interval == 0)
             {
 				// Compute max wave speed
-				const auto sig_max = spade::algs::transform_reduce(sol, get_sigma);
+				//const auto sig_max = spade::algs::transform_reduce(sol, get_sigma);
 				// Compute CFL
-				cur_cfl = sig_max * dt / dx;
+				//cur_cfl = sig_max * dt / dx;
 			}
 
 			//print some nice things to the screen
@@ -536,7 +557,7 @@ int main(int argc, char** argv)
 
 			
 			// Solution output frequency
-            if ((nt%interval == 0) && do_output || nt==nt_max)
+            if ((nt%interval == 0) && do_output)
             {
                 if (pool.isroot()) print("Output solution...");
                 std::string nstr = spade::utils::zfill(nt, 8);

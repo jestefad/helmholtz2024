@@ -44,8 +44,8 @@ namespace local
 					for (int d=0; d<3; ++d)
 					{
 						// Expand bounding box to add mesh points
-						bnd.min(d)-=0.02;
-						bnd.max(d)+=0.02;
+						bnd.min(d)-=0.2;
+						bnd.max(d)+=0.2;
 					}
 				}
 				

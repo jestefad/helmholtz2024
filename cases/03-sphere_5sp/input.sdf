@@ -5,7 +5,7 @@ Grid
     nexch       = [2, 2, 2]
     bounds      = [-0.2, 0.0, 0.0, 0.2, 0.0, 0.2]
     geom        = "sphere.vtk"
-    sampl_dist  = 1.5
+    sampl_dist  = 3.0
     is_external = true
     periodic    = [false, false, false]
     maxlevel    = 4
@@ -24,7 +24,7 @@ Debug
 Config
 {
     cfl         = 0.25
-    interval    = 25
+    interval    = 100
     nt_max      = 10000
     do_output   = true
     devices     = [0]

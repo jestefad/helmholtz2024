@@ -5,7 +5,7 @@
 namespace local
 {
   template <typename arr_t, typename ghost_t>
-    static void zero_ghost_rhs(arr_t& array, const ghost_t& ghost)
+  static void zero_ghost_rhs(arr_t& array, const ghost_t& ghost)
     {
       auto arr_img  = array.image();
       const auto ghst_img = ghost.image(array.device());
@@ -66,8 +66,8 @@ namespace local
     spade::dispatch::execute(var_range, loop);
   }
 
-	template<typename image_type, typename rtype, typename norm_type, typename output_type>
-	static void ghost_slipwall(const image_type& image, const rtype& distWallToImage, const rtype& distGhostToWall, const norm_type& nvec, output_type& ghost_bc)
+	template<typename image_type, typename rtype, typename norm_type>
+	_sp_hybrid static void ghost_slipwall(const image_type& image, const rtype& distWallToImage, const rtype& distGhostToWall, const norm_type& nvec, image_type& ghost_bc)
 	{
 
 		// Copy image state over to enforce adiabatic and zero pressure gradient
@@ -76,10 +76,10 @@ namespace local
 		// Get normal and tangential velocity at image point
 		using vec_t = spade::ctrs::array<rtype, 3>;
 		vec_t u = {image.u(), image.v(), image.w()};
-		//vec_t unorm = spade::ctrs::array_val_cast<rtype>(spade::ctrs::dot_prod(u, nvec)*nvec);
-		//vec_t utang = u - unorm;
-		//			
-		//// Copy tangential velocity
+		vec_t unorm = spade::ctrs::array_val_cast<rtype>(spade::ctrs::dot_prod(u, nvec)*nvec);
+		vec_t utang = u - unorm;
+					
+		// Copy tangential velocity
 		//for (int i = 0; i < 3; ++i)
 		//{
 		//	ghost_bc.u(i) = utang[i];
@@ -151,18 +151,6 @@ namespace local
 					ghost_slipwall(sampl_value, d1, d0, nvec, ghost_value);
 					
 					//
-					if (ilayer==1)
-					{
-						auto idom = icell;
-						int dijk[3]={};
-						dijk[dir]=(nvec[dir]>0)? 1 : -1;
-						idom.i() = idom.i() + dijk[0];
-						idom.j() = idom.j() + dijk[1];
-						idom.k() = idom.k() + dijk[2];
-                        auto indomain = arr_img.get_elem(idom);
-						ghost_value = indomain;
-					}
-					//
                     if (do_fill) arr_img.set_elem(icell, ghost_value);
                 });
             };
@@ -201,7 +189,7 @@ namespace local
 			// Set ghost bc
 			alias_type ghost_value;
 			ghost_slipwall(sampl_value, d1, d0, nvec, ghost_value);
-
+			
 			if (do_fill) arr_img.set_elem(icell, ghost_value);
         };
         spade::dispatch::execute(diag_range, diag_loop, array.device());        
