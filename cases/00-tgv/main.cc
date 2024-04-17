@@ -156,7 +156,6 @@ int main(int argc, char** argv)
         
         spade::convective::hybrid_scheme_t hyb_scheme(central, fweno, ducr, spade::convective::diss_flux);
         auto conv_scheme = hyb_scheme;
-        
         // auto conv_scheme = central;
         
         const spade::viscous_laws::constant_viscosity_t visc_law(real_t(1.8e-5), real_t(0.72));
@@ -225,9 +224,8 @@ int main(int argc, char** argv)
             }
         };
         
-        
+        const auto alg = spade::time_integration::ssprk3_opt;
         spade::time_integration::time_axis_t axis(time0, dt);
-        spade::time_integration::ssprk3_t alg;
         spade::time_integration::integrator_data_t qdata(std::move(prim), std::move(rhs), alg);
         spade::time_integration::integrator_t time_int(axis, alg, qdata, calc_rhs, bc, trans);
         
