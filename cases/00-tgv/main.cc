@@ -225,6 +225,7 @@ int main(int argc, char** argv)
         };
         
         const auto alg = spade::time_integration::ssprk3_opt;
+        // const auto alg = spade::time_integration::ssprk3_t();
         spade::time_integration::time_axis_t axis(time0, dt);
         spade::time_integration::integrator_data_t qdata(std::move(prim), std::move(rhs), alg);
         spade::time_integration::integrator_t time_int(axis, alg, qdata, calc_rhs, bc, trans);
