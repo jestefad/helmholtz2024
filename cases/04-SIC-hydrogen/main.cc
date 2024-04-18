@@ -54,7 +54,8 @@ using prim_t  = spade::fluid_state::prim_chem_t<real_t, nspecies>;
 using cons_t  = spade::fluid_state::cons_chem_t<real_t, nspecies>;
 using flux_t  = spade::fluid_state::flux_chem_t<real_t, nspecies>;
 using gas_t   = spade::fluid_state::multicomponent_gas_t<real_t, nspecies, maxVibLevel>;
-using react_t = spade::fluid_state::reactionMechanism_t<real_t, nspecies, nreactions>; // Number of reactions
+using react_t = spade::fluid_state::reactionMechanism_t<real_t, nspecies, nreactions>;
+using chem_t  = spade::fluid_state::chem_source_t<real_t, nspecies, nreactions, maxVibLevel>;
 
 int main(int argc, char** argv)
 {
@@ -87,6 +88,7 @@ int main(int argc, char** argv)
 	const bool   print_perf          = input["Debug"]["print_perf"];
 	
 	// Configuration flags
+	const real_t phys_timestep       = input["Config"]["dt"];
     const real_t targ_cfl            = input["Config"]["cfl"];
 	const int    interval            = input["Config"]["interval"];
     const int    nt_max              = input["Config"]["nt_max"];
@@ -125,16 +127,16 @@ int main(int argc, char** argv)
         }
 		
         // Define the gas model
-        spade::fluid_state::multicomponent_gas_t<real_t, nspecies, maxVibLevel> combustionH2;
+        gas_t airH2;
 
 		// Import species data
-		spade::fluid_state::import_species_data(species_fname, vib_fname, speciesNames, combustionH2);
+		spade::fluid_state::import_species_data(species_fname, vib_fname, speciesNames, airH2);
 		
 		// Initialize reaction mechanism
-		spade::fluid_state::reactionMechanism_t<real_t, nspecies, nreactions> reactH2;
+		react_t reactH2;
 		
 		// Import reaction mechanism
-		spade::fluid_state::import_reaction_data(reaction_fname, gibbs_fname, speciesNames, combustionH2, reactH2);
+		spade::fluid_state::import_reaction_data(reaction_fname, gibbs_fname, speciesNames, airH2, reactH2);
 		
 		// initialize block structure
 		spade::amr::amr_blocks_t blocks(nblks, bounds);
@@ -179,8 +181,8 @@ int main(int argc, char** argv)
 		// nothing here yet
 		
 		// Set convective scheme
-		const auto flux_func = spade::convective::rusanov_chem_t<real_t, nspecies, maxVibLevel>(combustionH2);
-		spade::convective::charweno_t inviscidScheme(flux_func, combustionH2);
+		const auto flux_func = spade::convective::rusanov_chem_t<real_t, nspecies, maxVibLevel>(airH2);
+		spade::convective::charweno_t inviscidScheme(flux_func, airH2);
 		//spade::convective::first_order_t inviscidScheme(flux_func);
 		//spade::convective::weno_t inviscidScheme(flux_func);
 		
@@ -188,7 +190,7 @@ int main(int argc, char** argv)
 		//spade::viscous::visc_lr viscousScheme();
 
 		// Set source term
-		spade::fluid_state::chem_source_t<real_t, nspecies, nreactions, maxVibLevel> chem_source(combustionH2, reactH2);
+		chem_t chem_source(airH2, reactH2.image(prim.device()));
 		
         // Computing the ghost points
         if (pool.isroot()) print("Compute ghosts");
@@ -297,7 +299,7 @@ int main(int argc, char** argv)
 			for (int s = 0; s<output.nspecies(); ++s) output.Ys(s) = Yinf[s];
 			output.T()   = Tinf;
 			output.Tv()  = Tvinf;
-			output.p()   = spade::fluid_state::get_pressure(rhoinf, Yinf, Tinf, Tvinf, combustionH2);
+			output.p()   = spade::fluid_state::get_pressure(rhoinf, Yinf, Tinf, Tvinf, airH2);
             
             return output;
         };
@@ -336,19 +338,19 @@ int main(int argc, char** argv)
         if (pool.isroot()) print("Done");
 
 		// Compute max wavespeed
-		//const auto sigma_func = [=] _sp_hybrid (const prim_t& q) {return sqrt(q.u()*q.u() + q.v()*q.v() + q.w()*q.w()) + spade::fluid_state::get_sos(q, combustionH2);};
+		//const auto sigma_func = [=] _sp_hybrid (const prim_t& q) {return sqrt(q.u()*q.u() + q.v()*q.v() + q.w()*q.w()) + spade::fluid_state::get_sos(q, airH2);};
 		//const auto get_sigma  = spade::algs::make_reduction(prim, sigma_func, spade::algs::max);
 		//const auto sigma_ini  = spade::algs::transform_reduce(prim, get_sigma);
 
 		// Calculate timestep
 		real_t time0    = float_t(0.0);
-		const real_t dt = 1E-7;//targ_cfl * dx / sigma_ini;
+		const real_t dt = phys_timestep; //targ_cfl * dx / sigma_ini;
 		//print("umax+sos = ",sigma_ini);
 		print("dt       = ",dt);
 
 		// Create state transformation function
 		cons_t transform_state;
-		spade::fluid_state::state_transform_t trans(transform_state, combustionH2);
+		spade::fluid_state::state_transform_t trans(transform_state, airH2);
 
 		// Set RHS lambda
 		int count = 0;
@@ -368,7 +370,7 @@ int main(int argc, char** argv)
 			// Irregular convective scheme (no need since we don't need to modify scheme at IB)
 			spade::timing::tmr_t t1;
 			t1.start();
-			//local::rhs_irreg_conv(prim_in, rhs_in, combustionH2, inviscidScheme, ghosts, ips); // CHECK THIS !!!!
+			//local::rhs_irreg_conv(prim_in, rhs_in, airH2, inviscidScheme, ghosts, ips); // CHECK THIS !!!!
 			t1.stop();
 			
 			// Add chemical source term
@@ -431,7 +433,7 @@ int main(int argc, char** argv)
 			qguard.w()   = 0.0;
 			qguard.T()   = Tinf;
 			qguard.Tv()  = Tvinf;
-			qguard.p()   = spade::fluid_state::get_pressure(rhoinf, Yinf, Tinf, Tvinf, combustionH2);
+			qguard.p()   = spade::fluid_state::get_pressure(rhoinf, Yinf, Tinf, Tvinf, airH2);
 			return qguard;
 		};
 
