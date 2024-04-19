@@ -38,14 +38,14 @@ namespace local
 				bool interior = geom.is_interior(xc);
 
 				// Check for blocks whose centroid is in the solid domain
-				if (!interior&&xc[1]>0)
+				if (!interior)
 				{
 					// Check all three directions
 					for (int d=0; d<3; ++d)
 					{
 						// Expand bounding box to add mesh points
-						bnd.min(d)-=0.002;
-						bnd.max(d)+=0.002;
+						bnd.min(d)-=0.0002;
+						bnd.max(d)+=0.0002;
 					}
 				}
 				

@@ -80,15 +80,15 @@ namespace local
 		vec_t utang = u - unorm;
 					
 		// Copy tangential velocity
-		//for (int i = 0; i < 3; ++i)
-		//{
-		//	ghost_bc.u(i) = utang[i];
-		//}
+		for (int i = 0; i < 3; ++i)
+		{
+			ghost_bc.u(i) = utang[i];
+		}
 
 		// Linear ramp on normal velocity
 		for (int i = 0; i < 3; ++i)
 		{
-			ghost_bc.u(i) = -(distGhostToWall / distWallToImage)*u[i];
+			ghost_bc.u(i) += -(distGhostToWall / distWallToImage)*u[i];
 		}
 		
 		return;

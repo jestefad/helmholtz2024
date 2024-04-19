@@ -338,14 +338,15 @@ int main(int argc, char** argv)
         if (pool.isroot()) print("Done");
 
 		// Compute max wavespeed
-		//const auto sigma_func = [=] _sp_hybrid (const prim_t& q) {return sqrt(q.u()*q.u() + q.v()*q.v() + q.w()*q.w()) + spade::fluid_state::get_sos(q, airH2);};
-		//const auto get_sigma  = spade::algs::make_reduction(prim, sigma_func, spade::algs::max);
-		//const auto sigma_ini  = spade::algs::transform_reduce(prim, get_sigma);
+		const auto sigma_func = [=] _sp_hybrid (const prim_t& q) {return sqrt(q.u()*q.u() + q.v()*q.v() + q.w()*q.w()) + spade::fluid_state::get_sos(q, airH2);};
+		const auto get_sigma  = spade::algs::make_reduction(prim, sigma_func, spade::algs::max);
+		const auto sigma_ini  = spade::algs::transform_reduce(prim, get_sigma);
 
 		// Calculate timestep
 		real_t time0    = float_t(0.0);
-		const real_t dt = phys_timestep; //targ_cfl * dx / sigma_ini;
-		//print("umax+sos = ",sigma_ini);
+		//const real_t dt = phys_timestep;
+		const real_t dt = targ_cfl * dx / sigma_ini;
+		print("umax+sos = ",sigma_ini);
 		print("dt       = ",dt);
 
 		// Create state transformation function
@@ -537,11 +538,73 @@ int main(int argc, char** argv)
 		// Now we apply the BC onto primitive array and run exchange
 		boundary_cond(prim, time0);
 
+		// Update limiter kernel
+		const auto update_limiter = [=] _sp_hybrid (flux_t& dcons, const prim_t& cons)
+	    {
+			// Maximum rate of change w.r.t. current state
+			const real_t rate = 0.5;
+
+			// Initialize return vector
+			flux_t update;
+			for (int n = 0; n<cons.size(); ++n) update[n] = dcons[n];
+
+			auto lim_func = [&](real_t& dU, const real_t& U)
+		    {
+				real_t dU_new;
+				if (dU > 0)
+				{
+					dU_new = spade::utils::min(rate * U, dU);
+				}
+				else
+				{
+					dU_new = spade::utils::max(-rate * U, dU);
+				}
+				return dU_new;
+			};
+			
+			// Limit change to no more than 50% of current value (species density
+			for (int n = 0; n<cons.nspecies(); ++n) update[n] = lim_func(dcons[n], cons[n]);
+
+			// Limit temperature change
+			update.energyVib()  = lim_func(dcons.energyVib(), cons.Tv());
+
+			// Limit vib-temperature change
+			update.energyVib() = lim_func(dcons.energyVib(), cons.Tv());
+			
+			// Limited state
+			return update;
+		};
+		
+		// Set up advance limiter
+		auto advance_limiter = [&](auto& dsol, const auto& sol)
+        {
+			spade::timing::tmr_t t0;
+			t0.start();
+			spade::time_integration::advance_limiter(dsol, sol, update_limiter);
+			t0.stop();
+
+			if (pool.isroot() && print_perf)
+            {
+                print("============================================== ADV LIM ==============================================");
+                std::string fmt0;
+                int nn = 20;
+                fmt0 += spade::utils::pad_str("update lim", nn);
+                
+                std::string fmt1;
+                fmt1 += spade::utils::pad_str(t0.duration(), nn);
+                
+                print(fmt0);
+                print(fmt1);
+                print();
+            }
+			
+		};
+		
 		// Setup time integration
 		spade::time_integration::time_axis_t axis(time0, dt); // Pass time integrator time + dt to track computational time?
 		spade::time_integration::ssprk3_t alg; // Initialize integrator
 		spade::time_integration::integrator_data_t qdata(std::move(prim), std::move(rhs), alg);
-		spade::time_integration::integrator_t time_int(axis, alg, qdata, calc_rhs, boundary_cond, trans);
+		spade::time_integration::integrator_t time_int(axis, alg, qdata, calc_rhs, boundary_cond, trans, advance_limiter);
 
 		// Frequency to recompute CFL
 		int cfl_sample_interval = 1;
@@ -562,9 +625,9 @@ int main(int argc, char** argv)
 			if (nt % cfl_sample_interval == 0)
             {
 				// Compute max wave speed
-				//const auto sig_max = spade::algs::transform_reduce(sol, get_sigma);
+				const auto sig_max = spade::algs::transform_reduce(sol, get_sigma);
 				// Compute CFL
-				//cur_cfl = sig_max * dt / dx;
+				cur_cfl = sig_max * dt / dx;
 			}
 
 			//print some nice things to the screen

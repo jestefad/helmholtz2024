@@ -1,11 +1,11 @@
 Grid
 {
     nxyz        = [16,16,16]
-    nblks       = [2,2,2]
+    nblks       = [2, 2, 2]
     nexch       = [2, 2, 2]
-    bounds      = [-0.01, 0.02, 0.0, 0.03, 0.0, 0.03]
+    bounds      = [-0.02, 0.02, 0.0, 0.04, 0.0, 0.04]
     geom        = "bluntconeSIC.vtk"
-    sampl_dist  = 3.0
+    sampl_dist  = 1.5
     is_external = true
     periodic    = [false, false, false]
     maxlevel    = 4
@@ -18,13 +18,13 @@ Refine
 }
 Debug
 {
-    print_perf  = false
+    print_perf  = true
     output_rhs  = false
 }
 Config
 {
-    dt          = 1.9E-8
-    cfl         = 0.25
+    dt          = 1E-8
+    cfl         = 0.50
     interval    = 500
     nt_max      = 10000
     do_output   = true
