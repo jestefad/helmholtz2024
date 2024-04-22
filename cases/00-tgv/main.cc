@@ -203,7 +203,7 @@ int main(int argc, char** argv)
         {
             spade::timing::tmr_t tmr;
             tmr.start();
-            const auto traits = spade::algs::make_traits(spade::pde_algs::fldbc, spade::pde_algs::overwrite);
+            const auto traits = spade::algs::make_traits(spade::pde_algs::fldbcsb, spade::pde_algs::overwrite);
             spade::pde_algs::flux_div(q, rhs_in, spade::omni::compose(visc_scheme, conv_scheme), traits);
             // spade::pde_algs::flux_div(q, rhs_in, central, traits);
             tmr.stop();
@@ -293,7 +293,8 @@ int main(int argc, char** argv)
         {
             double rhs_avg = total_ms/rhs_count;
             double adv_avg = adv_dur/adv_count;
-            int nstage = qdata.residual_data.size();
+            // int nstage = qdata.residual_data.size();
+            int nstage = 3;
             
             double pct_rhs = nstage*rhs_avg/adv_avg;
             
