@@ -5,7 +5,7 @@ MPI_ENABLE := 1
 endif
 
 ifndef fmath
-fmath := 0
+fmath := 1
 endif
 
 ifndef cuda
@@ -36,6 +36,7 @@ flags = ${hflags}
 
 dflags :=
 dflags += -x cu
+dflags += -arch=native
 dflags += -std=c++20 -O3 #-prec-div=false
 dflags += -ccbin=${cc_h}
 dflags += --extended-lambda

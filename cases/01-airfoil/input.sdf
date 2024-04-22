@@ -17,6 +17,9 @@ Refine
     dx_boundary  = 0.00071
     dx_direction = 0
     aspect       = [1.0, 0.8, 1.8]
+    comp_infos = [\
+        ["comp":"any", "dx":0.00142,  "axis":0, "aspect":[2.0, 1.0, 2.0]],\
+        ["comp":3,     "dx":0.00071,  "axis":0, "aspect":[1.0, 1.0, 2.0]]]
 }
 Debug
 {
@@ -29,12 +32,12 @@ Config
     cfl          = 0.75
     init_file    = "none"
     nt_max       = 500000
-    nt_skip      = 2500
+    nt_skip      = 1500
     restart_skip = 5000
     do_restart   = false
     nt_restart   = 5002
     nt_surf      = 1000
-    do_output    = false
+    do_output    = true
     devices      = [0]
 }
 Fluid

@@ -1,7 +1,8 @@
 #include <stdio.h>
 #include <vector>
-#include "print_type.h"
 
+
+#include "print_type.h"
 #include "scidf.h"
 #include "spade.h"
 #include <time.h>
@@ -13,6 +14,7 @@
 #include "compute_irreg_visc.h"
 #include "compute_irreg_conv.h"
 #include "profile_reader.h"
+#include "comp_refine_info.h"
 #include "refine_mesh.h"
 #include "inout.h"
 #include "restart.h"
@@ -86,6 +88,8 @@ int main(int argc, char** argv)
     const coor_t                   dx_boundary = input["Refine"]["dx_boundary"];
     const int                     dx_direction = input["Refine"]["dx_direction"];
     const spade::ctrs::array<coor_t, 3> aspect = input["Refine"]["aspect"];
+        
+    std::vector<local::comp_refine_info_t<coor_t>> comp_infos = input["Refine"]["comp_infos"];
 
     //Creates an identity matrix
     spade::coords::identity<coor_t> coords;
@@ -105,7 +109,8 @@ int main(int argc, char** argv)
         // read the geometry file
         if (group.isroot()) print("Read", geom_fname);
         spade::geom::vtk_geom_t<3, 3, coor_t> geom;
-        spade::geom::read_vtk_geom(geom_fname, geom, is_external);
+        std::vector<int> components;
+        spade::geom::read_vtk_geom(geom_fname, geom, is_external, "Components", components);
         if (group.isroot()) print("Done");
     
         //array of boolean
@@ -116,7 +121,8 @@ int main(int argc, char** argv)
         if (group.isroot()) print("Begin refine");
 
         const bool boundary_refinement = true;
-        if (boundary_refinement) local::refine_mesh(grid,geom,dx_boundary,dx_direction,aspect,periodic);
+        // if (boundary_refinement) local::refine_mesh(grid,geom,dx_boundary,dx_direction,aspect,periodic);
+        local::refine_by_components(grid, geom, components, comp_infos, periodic);
 
 		if (group.isroot()) spade::io::output_vtk("debug/grid.vtk", grid);
 
@@ -224,9 +230,9 @@ int main(int argc, char** argv)
         
         //computing the image points for the ghosts --> this is happening on the CPU?
         if (group.isroot()) print("Compute ips");
-        auto ips = spade::ibm::compute_ghost_sample_points(ghosts, grid, sampl_dist*dx);
+        auto ips = spade::ibm::compute_ghost_sample_points(ghosts, grid, geom, sampl_dist*dx);
         //compute a second image point
-        auto ips2 = spade::ibm::compute_ghost_sample_points(ghosts, grid, sampl_dist2*dx);
+        auto ips2 = spade::ibm::compute_ghost_sample_points(ghosts, grid, geom, sampl_dist2*dx);
         spade::io::output_vtk("debug/ips.vtk" , ips);
         spade::io::output_vtk("debug/ips2.vtk", ips2);
         if (group.isroot()) print("Done");
