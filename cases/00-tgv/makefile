@@ -64,7 +64,7 @@ cc = ${cc_d}
 flags := ${dflags} -Xcompiler "${hflags}"
 endif
 main:
-	${cc} ${flags} -I${SCIDF}/src -I${SPADE}/src main.cc -o ${target}
+	${cc} ${flags} -Ilocal -I${SCIDF}/src -I${SPADE}/src main.cc -o ${target}
 
 run: main
 	./${target}

@@ -4,6 +4,8 @@
 #include <iostream>
 #include <string>
 
+#include "flux_div_experimental.h"
+
 namespace debug
 {
     template <typename thing_t> void print_type(const thing_t&)
@@ -203,8 +205,9 @@ int main(int argc, char** argv)
         {
             spade::timing::tmr_t tmr;
             tmr.start();
-            const auto traits = spade::algs::make_traits(spade::pde_algs::fldbcsb, spade::pde_algs::overwrite);
+            const auto traits = spade::algs::make_traits(spade::pde_algs::fused, spade::pde_algs::overwrite);
             spade::pde_algs::flux_div(q, rhs_in, spade::omni::compose(visc_scheme, conv_scheme), traits);
+            // local::flux_div_experimental(q, rhs_in, visc_scheme, conv_scheme, traits);
             // spade::pde_algs::flux_div(q, rhs_in, central, traits);
             tmr.stop();
             if (pool.isroot()) print("rhs: ", tmr.duration(), "ms");
