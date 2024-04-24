@@ -40,7 +40,7 @@ dflags += -std=c++20 -O3 #-prec-div=false
 dflags += -ccbin=${cc_h}
 dflags += --extended-lambda
 #dflags += -Xptxas -v
-#dflags += --maxrregcount 96
+#dflags += --maxrregcount 254
 dflags += -w
 
 ifeq (${gee},1)

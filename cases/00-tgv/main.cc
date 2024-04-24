@@ -25,10 +25,85 @@ using flux_t = spade::fluid_state::flux_t<real_t>;
 using prim_t = spade::fluid_state::prim_t<real_t>;
 using cons_t = spade::fluid_state::cons_t<real_t>;
 
+void dbg()
+{
+    constexpr int tile_size = 4;
+    constexpr int half_tile = tile_size/2;
+    constexpr int thin_dir = 0;
+    constexpr int fuse_dir = 2;
+    constexpr int seq_dir  = 1;
+        
+    const auto get_offsts = [&](const spade::ctrs::array<int, 3>& ii)
+    {
+        spade::ctrs::array<int, 4> output;
+        
+        bool is_seq_face  = ii[seq_dir] == (tile_size - 1);
+        bool is_fuse_face = ii[seq_dir] == (tile_size - 2);
+        bool is_big_face  = !(is_seq_face || is_fuse_face);
+        int flux_dir  = is_big_face ? thin_dir : (is_seq_face ? seq_dir : fuse_dir);
+        int big_dfuse = ii[fuse_dir];
+        int big_dseq  = ii[thin_dir] + tile_size * ii[seq_dir];
+        int lit_dthn  = ii[thin_dir];
+        int lit_dd    = ii[fuse_dir];
+        
+        int di_fuse_dir = is_big_face ? (big_dfuse)     : (is_seq_face  ? (lit_dd) : (2*tile_size - 1));
+        int di_seq_dir  = is_big_face ? (big_dseq)      : (is_fuse_face ? (lit_dd) : (2*tile_size - 1));
+        int di_thin_dir = is_big_face ? (tile_size - 1) : lit_dthn;
+        
+        output[fuse_dir] = di_fuse_dir;
+        output[seq_dir ] = di_seq_dir;
+        output[thin_dir] = di_thin_dir;
+        output[3]        = flux_dir;
+        return output;
+    };
+    
+    using pnt_t = spade::coords::point_t<real_t>;
+    std::vector<pnt_t> org_pnt;
+    std::vector<pnt_t> new_pnt;
+    
+    spade::ctrs::array<int, 3> dims;
+    dims[thin_dir] = tile_size;
+    dims[fuse_dir] = 2*tile_size;
+    dims[seq_dir ] = tile_size;
+    
+    for (int k = 0; k < dims[2]; ++k)
+    {
+        for (int j = 0; j < dims[1]; ++j)
+        {
+            for (int i = 0; i < dims[0]; ++i)
+            {
+                const auto ijk = spade::ctrs::make_array(i, j, k);
+                const auto iii = get_offsts(ijk);
+                pnt_t org;
+                org[0] = i + 0.5;
+                org[1] = j + 0.5;
+                org[2] = k + 0.5;
+                
+                pnt_t newp;
+                newp[0] = iii[0] + 0.5;
+                newp[1] = iii[1] + 0.5;
+                newp[2] = iii[2] + 0.5;
+                
+                newp[iii[3]] += 0.5;
+                
+                org_pnt.push_back(org);
+                new_pnt.push_back(newp);
+            }
+        }
+    }
+    
+    spade::io::output_vtk("debug/initpt.vtk", org_pnt);
+    spade::io::output_vtk("debug/mapppt.vtk", new_pnt);
+    print(spade::utils::where());
+    std::cin.get();
+}
+
 int main(int argc, char** argv)
 {
     std::string ifile = "input.sdf";
     if (argc > 1) ifile = std::string(argv[1]);
+    
+    // dbg();
     
     scidf::node_t input;
     scidf::read(ifile, input);

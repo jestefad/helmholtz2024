@@ -16,7 +16,7 @@ nzb       = 12
 
 cfl         = 0.65
 interval    = 2500
-nt_max      = 0
+nt_max      = 25
 do_output   = false
 compare_rhs = false
 devices     = [0]
