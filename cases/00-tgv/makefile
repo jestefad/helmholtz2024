@@ -36,7 +36,6 @@ flags = ${hflags}
 
 dflags :=
 dflags += -x cu
-dflags += -arch=native
 dflags += -std=c++20 -O3 #-prec-div=false
 dflags += -ccbin=${cc_h}
 dflags += --extended-lambda
@@ -64,7 +63,7 @@ cc = ${cc_d}
 flags := ${dflags} -Xcompiler "${hflags}"
 endif
 main:
-	${cc} ${flags} -Ilocal -I${SCIDF}/src -I${SPADE}/src main.cc -o ${target}
+	${cc} ${flags} -I${SCIDF}/src -I${SPADE}/src main.cc -o ${target}
 
 run: main
 	./${target}
