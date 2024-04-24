@@ -18,7 +18,7 @@ Refine
 }
 Debug
 {
-    print_perf  = true
+    print_perf  = false
     output_rhs  = false
 }
 Config
@@ -26,8 +26,8 @@ Config
     dt          = 1E-8
     cfl         = 0.50
     interval    = 500
-    nt_max      = 10000
-    do_output   = true
+    nt_max      = 2000
+    do_output   = false
     devices     = [0]
     do_restart  = false
     nt_restart  = 0

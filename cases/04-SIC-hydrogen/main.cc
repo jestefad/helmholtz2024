@@ -182,9 +182,9 @@ int main(int argc, char** argv)
 		
 		// Set convective scheme
 		const auto flux_func = spade::convective::rusanov_chem_t<real_t, nspecies, maxVibLevel>(airH2);
-		spade::convective::charweno_t inviscidScheme(flux_func, airH2);
+		//spade::convective::charweno_t inviscidScheme(flux_func, airH2);
 		//spade::convective::first_order_t inviscidScheme(flux_func);
-		//spade::convective::weno_t inviscidScheme(flux_func);
+		spade::convective::weno_t inviscidScheme(flux_func);
 		
 		// Set viscous scheme
 		//spade::viscous::visc_lr viscousScheme();
@@ -208,7 +208,7 @@ int main(int argc, char** argv)
 
 		// Set first image point
         if (pool.isroot()) print("Compute ips");
-        auto ips = spade::ibm::compute_ghost_sample_points(ghosts, grid, sampl_dist*dx);
+        auto ips = spade::ibm::compute_ghost_sample_points(ghosts, grid, geom, sampl_dist*dx);
         spade::io::output_vtk("debug/ips.vtk" , ips);
         if (pool.isroot()) print("Done");
 
@@ -356,10 +356,7 @@ int main(int argc, char** argv)
 		// Set RHS lambda
 		int count = 0;
 		auto calc_rhs = [&](auto& rhs_in, const auto& prim_in, const auto& t)
-     	{
-			// Initialize residual
-			rhs_in = real_t(0.0);
-			
+     	{			
 			// Compute flux divergence
 			spade::timing::tmr_t t0;
 			t0.start();
@@ -566,7 +563,7 @@ int main(int argc, char** argv)
 			for (int n = 0; n<cons.nspecies(); ++n) update[n] = lim_func(dcons[n], cons[n]);
 
 			// Limit temperature change
-			update.energyVib()  = lim_func(dcons.energyVib(), cons.Tv());
+			update.energy()  = lim_func(dcons.energy(), cons.T());
 
 			// Limit vib-temperature change
 			update.energyVib() = lim_func(dcons.energyVib(), cons.Tv());
