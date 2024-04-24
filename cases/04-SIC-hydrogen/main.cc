@@ -181,10 +181,10 @@ int main(int argc, char** argv)
 		// nothing here yet
 		
 		// Set convective scheme
-		const auto flux_func = spade::convective::rusanov_chem_t<real_t, nspecies, maxVibLevel>(airH2);
+		const auto flux_func = spade::convective::rusanov_fds_chem_t<real_t, nspecies, maxVibLevel>(airH2);
 		//spade::convective::charweno_t inviscidScheme(flux_func, airH2);
 		//spade::convective::first_order_t inviscidScheme(flux_func);
-		spade::convective::weno_t inviscidScheme(flux_func);
+		spade::convective::weno_fds_t<decltype(flux_func), gas_t, spade::convective::weno_smooth_indicator::enable_smooth> inviscidScheme(flux_func, airH2);
 		
 		// Set viscous scheme
 		//spade::viscous::visc_lr viscousScheme();
@@ -258,7 +258,7 @@ int main(int argc, char** argv)
 			coor_t distsp  = Rlocsp - Rsurf;
 			coor_t Rloccn  = sqrt(x[1]*x[1] + x[2]*x[2]);
 			coor_t distcn  = Rloccn - Rsurf;
-			coor_t rampMax = 0.0075;
+			coor_t rampMax = 0.015;
 			
 			// Initial condition
 			real_t theta = spade::consts::pi*aoa/180.0;
@@ -379,7 +379,7 @@ int main(int argc, char** argv)
 
 			spade::timing::tmr_t t3;
             t3.start();
-            local::zero_ghost_rhs(rhs_in, ghosts); // Zero RHS in ghost cells
+            //local::zero_ghost_rhs(rhs_in, ghosts); // Zero RHS in ghost cells
             t3.stop();
             
             spade::timing::tmr_t t4;

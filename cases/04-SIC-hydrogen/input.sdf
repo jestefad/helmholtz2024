@@ -5,7 +5,7 @@ Grid
     nexch       = [2, 2, 2]
     bounds      = [-0.02, 0.02, 0.0, 0.04, 0.0, 0.04]
     geom        = "bluntconeSIC.vtk"
-    sampl_dist  = 1.5
+    sampl_dist  = 1.0
     is_external = true
     periodic    = [false, false, false]
     maxlevel    = 4
@@ -14,7 +14,7 @@ Refine
 {
     dx_boundary  = 0.00025
     dx_direction = 0
-    aspect       = [1.0, 1.0, 1.0]
+    aspect       = [1.0, 0.9, 0.9]
 }
 Debug
 {
@@ -25,8 +25,8 @@ Config
 {
     dt          = 1E-8
     cfl         = 0.50
-    interval    = 500
-    nt_max      = 2000
+    interval    = 2500
+    nt_max      = 0
     do_output   = false
     devices     = [0]
     do_restart  = false

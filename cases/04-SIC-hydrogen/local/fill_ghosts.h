@@ -57,7 +57,7 @@ namespace local
         const int inside= inout_img.get_elem(i_cell);
         if (inside==1)
           {
-            for (int v=0;v<5;v++)
+			  for (int v=0;v<18;v++)
               {
                 rhs_img(v,i_cell) = 0.;
               }
