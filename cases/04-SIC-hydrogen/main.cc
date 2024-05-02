@@ -184,7 +184,7 @@ int main(int argc, char** argv)
 		const auto flux_func = spade::convective::rusanov_fds_chem_t<real_t, nspecies, maxVibLevel>(airH2);
 		//spade::convective::charweno_t inviscidScheme(flux_func, airH2);
 		//spade::convective::first_order_t inviscidScheme(flux_func);
-		spade::convective::weno_fds_t<decltype(flux_func), gas_t, spade::convective::weno_smooth_indicator::enable_smooth> inviscidScheme(flux_func, airH2);
+		spade::convective::weno_fds_t<decltype(flux_func), spade::convective::weno_smooth_indicator::enable_smooth> inviscidScheme(flux_func);
 		
 		// Set viscous scheme
 		//spade::viscous::visc_lr viscousScheme();
@@ -360,7 +360,7 @@ int main(int argc, char** argv)
 			// Compute flux divergence
 			spade::timing::tmr_t t0;
 			t0.start();
-			const auto traits = spade::algs::make_traits(spade::pde_algs::ldbalnp, spade::pde_algs::overwrite);
+			const auto traits = spade::algs::make_traits(spade::pde_algs::fldbcsb, spade::pde_algs::overwrite);
 			//spade::pde_algs::flux_div(prim, rhs, spade::omni::compose(inviscidScheme, viscousScheme), traits);
 			spade::pde_algs::flux_div(prim_in, rhs_in, inviscidScheme, traits);
 			t0.stop();
